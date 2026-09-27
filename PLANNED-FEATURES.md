@@ -1,10 +1,9 @@
-# GoreeCloud Documents — Feature Roadmap
+# GoreeCloud Documents — Planned Features
 
 **Status:** Active roadmap control  
 **As of:** 2026-09-08  
 **Authoritative project record:** Project Specification — Documents  
 **Canonical repository:** GoreeCloud/goreecloud-documents
-**Drive control:** `GoreeCloud/Feature Roadmap/GoreeCloud Documents/FEATURE-ROADMAP.docx`
 
 ## Purpose
 
@@ -18,11 +17,9 @@ This file is the repository-side feature roadmap control for GoreeCloud Document
 | FR-002 | Move actionable feature obligations into GoreeCloud Tasks Management when required, preserving priority, dependency, and lifecycle disposition. | High | Ongoing control |
 | FR-003 | Do not mark features implemented, complete, cancelled, or superseded without authoritative evidence and synchronized repository/Drive roadmap updates. | High | Ongoing control |
 
-## Maintenance and synchronization
+## Repository-native maintenance
 
-This roadmap and the corresponding Drive `FEATURE-ROADMAP.docx` must remain materially synchronized with one another and with the authoritative project or service record. Update both copies whenever feature scope, priority, dependency, implementation status, cancellation, supersession, recommendation, or verification state materially changes.
-
-No feature may be represented as complete or Stable solely because it appears in this roadmap. Completion and lifecycle claims require the applicable authoritative implementation, validation, review, release, and production evidence.
+Google Drive roadmap synchronization is retired. Maintain this file from authoritative repository/project evidence and applicable task records.
 
 ## Reconciliation rule
 
