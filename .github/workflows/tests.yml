@@ -68,6 +68,58 @@ jobs:
                   process.communicate()
           PY
 
+      - name: Exercise registered native GTK4 window actions
+        env:
+          GOREEDOCS_TOKEN: ""
+        run: |
+          xvfb-run -a /usr/bin/python3 - <<'PY'
+          from gi.repository import Gio, GLib, Gtk
+          from goreedocs import linux
+
+          results = []
+          expected = {
+              "new-document": "<Primary>n",
+              "save-document": "<Primary>s",
+              "search-documents": "<Primary>f",
+              "focus-editor": "<Primary>e",
+              "refresh-library": "F5",
+          }
+
+          def inspect():
+              app = Gio.Application.get_default()
+              if app is None:
+                  results.append("GTK application did not register")
+                  return False
+              try:
+                  window = app.get_active_window()
+                  if window is None:
+                      raise AssertionError("No active native window")
+                  for name, shortcut in expected.items():
+                      action = window.lookup_action(name)
+                      if action is None:
+                          raise AssertionError("Missing native action: " + name)
+                      accelerators = app.get_accels_for_action("win." + name)
+                      if shortcut not in accelerators:
+                          raise AssertionError(
+                              f"Missing keyboard shortcut for {name}: {accelerators}"
+                          )
+                  window.activate_action("search-documents", None)
+                  if not isinstance(window.get_focus(), Gtk.SearchEntry):
+                      raise AssertionError("Search shortcut did not focus search")
+                  results.append("Native GTK4 window actions and search focus passed")
+              except Exception as error:
+                  results.append("Failed: " + str(error))
+              finally:
+                  app.quit()
+              return False
+
+          GLib.timeout_add(1200, inspect)
+          status = linux.main(["goreecloud-documents"])
+          if status != 0 or results != ["Native GTK4 window actions and search focus passed"]:
+              raise SystemExit(f"Native action runtime check failed: {status} {results}")
+          print(results[0])
+          PY
+
   linux-debian-package:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
