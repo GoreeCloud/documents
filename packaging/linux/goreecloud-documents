@@ -1,0 +1,5 @@
+#!/bin/sh
+# Installed native Linux preview. -I ignores cwd, PYTHONPATH and user-site imports.
+# The GTK app still requires an authorized local document service and token.
+set -eu
+exec /usr/bin/python3 -I -c 'import runpy,sys; sys.path.insert(0,"/usr/lib/goreecloud-documents"); sys.argv[0]="goreecloud-documents"; runpy.run_module("goreedocs.linux",run_name="__main__")' "$@"
