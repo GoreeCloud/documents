@@ -3,6 +3,7 @@ package com.goreecloud.documents
 import android.app.Activity
 import android.app.Instrumentation
 import android.content.Intent
+import android.net.Uri
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.test.espresso.intent.Intents
 import androidx.test.espresso.intent.matcher.IntentMatchers.hasAction
@@ -139,6 +140,49 @@ class DocumentsActivityTest {
         } finally {
             // Remove only the temporary malformed fixture created by this test.
             damaged.delete()
+        }
+    }
+
+    @Test fun failedExternalProviderWriteLeavesSavedDocumentIntact() {
+        awaitText("+ New")
+        rule.onNodeWithText("+ New").performClick()
+        awaitText("Created and saved in private device storage")
+
+        val original = DocumentShelf(rule.activity.filesDir).scan().documents
+            .single { it.document.title == "Untitled document" }
+        rule.onAllNodes(hasSetTextAction())[0]
+            .performTextReplacement("Unsaved after provider failure")
+        rule.onNodeWithText("Save").assertIsEnabled()
+
+        Intents.init()
+        try {
+            val unavailable = Uri.parse(
+                "content://com.goreecloud.documents.unavailable-test-provider/export.gcdoc"
+            )
+            Intents.intending(hasAction(Intent.ACTION_CREATE_DOCUMENT)).respondWith(
+                Instrumentation.ActivityResult(
+                    Activity.RESULT_OK, Intent().setData(unavailable)
+                )
+            )
+            rule.onNodeWithText("Export…").performClick()
+
+            // A provider error must release the busy state without claiming
+            // that the local edits were saved.
+            rule.waitUntil(20_000) {
+                runCatching {
+                    rule.onNodeWithText("Save").assertIsEnabled()
+                    true
+                }.getOrDefault(false)
+            }
+            val onDisk = DocumentShelf(rule.activity.filesDir).scan().documents
+                .single { it.id == original.id }
+            assertEquals(original.document, onDisk.document)
+
+            rule.onNodeWithText("Library").performClick()
+            awaitText("Discard unsaved edits?")
+            rule.onNodeWithText("Keep editing").performClick()
+        } finally {
+            Intents.release()
         }
     }
 
