@@ -7,7 +7,7 @@
 - Linux desktop with GTK 4 and Python GObject Introspection (PyGObject)
 - Python 3.11 or newer
 - A running **local** GoreeCloud Documents development server
-- An authorized `GOREEDOCS_TOKEN` set in the launching process
+- An authorized Documents API owner token, supplied through the environment or the native masked token entry
 
 On a Linux distribution with native GTK4 Python bindings, start the local service as described in the repository README, then open a terminal in the repository checkout and launch:
 
@@ -16,18 +16,18 @@ export GOREEDOCS_URL=http://127.0.0.1:8735
 python3 -m goreedocs.linux
 ```
 
-The client reads `GOREEDOCS_TOKEN` from the environment, as the existing CLI does. Do not put tokens into shell history or publicly readable files. If GTK4 bindings or a display server are unavailable, the client cannot launch. The optional Debian package below is a separate source-built, unshipped preview and does not itself establish desktop acceptance.
+The client reads `GOREEDOCS_TOKEN` if supplied, but also shows a native password-masked owner-token entry when none is configured or when the server rejects a token. The entry clears after connection and the token is kept in process memory for that session only; there is no keyring or on-disk credential persistence. Do not put tokens in shell history or publicly readable files. If GTK4 bindings or a display server are unavailable, the client cannot launch. The optional Debian package below is a separate source-built, unshipped preview and does not itself establish desktop acceptance.
 
 ## Features in this development slice
 
-- Native `Gtk.Application` and `Gtk.ApplicationWindow`, with system widget styling and a limited GC UI Iris reference accent.
+- Native `Gtk.Application` and `Gtk.ApplicationWindow`, a password-masked in-memory connection flow, system widget styling and a limited GC UI Iris reference accent.
 - Searchable, paginated document list, including upper-right format badges on thumbnails.
 - Create and open documents, and manually save title, folder and UTF-8 Markdown body.
 - Optimistic version checks through the existing REST API; a conflict is surfaced as an error rather than silently overwriting a concurrent edit.
 - Unsaved-change protection when changing documents or closing the window; explicit Discard edits action.
 - HTTP work runs in background worker threads; UI updates return to the GTK main loop.
 
-The desktop client has **no standalone offline document store**, per-user authentication dialog, native import/export dialogs, thumbnail image rendering, sharing controls, or established platform theme/accessibility acceptance. An experimental Debian launcher and desktop-entry package exists, but has not been released and cannot solve these gaps. The web app has features not yet present in the Linux preview.
+The desktop client has **no standalone offline document store**, OS keyring integration, native import/export dialogs, thumbnail image rendering, sharing controls, or established platform theme/accessibility acceptance. An experimental Debian launcher and desktop-entry package exists, but has not been released and cannot solve these gaps. The web app has features not yet present in the Linux preview.
 
 ## Design and verification
 
@@ -64,5 +64,7 @@ and acceptance for each target Linux distribution.
 
 The installed launcher uses isolated Python imports so untrusted current
 working directories, `PYTHONPATH` and user site-packages cannot replace the
-packaged GTK code. A desktop launched from an application menu may lack a
-`GOREEDOCS_TOKEN`; that authentication and onboarding gap remains open.
+packaged GTK code. Desktop-menu launches without an existing environment
+`GOREEDOCS_TOKEN` now show an in-memory, masked native token prompt. This is
+not GoreeCloud Identity integration or a replacement for secure token provisioning,
+revocation and keyring-reviewed session handling.
