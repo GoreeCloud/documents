@@ -107,5 +107,47 @@ class RecoveryTest(unittest.TestCase):
             backup_database(self.source, self.base / "blocked.sqlite3")
 
 
+    def test_wal_snapshot_includes_committed_changes_with_reader_open(self):
+        doc = self.store.create({"title": "WAL reader", "body": "earlier"})
+        reader = sqlite3.connect(self.source)
+        try:
+            reader.execute("BEGIN")
+            reader.execute("SELECT count(*) FROM documents").fetchone()
+            self.store.update(doc["id"], {"body": "committed while reader open"}, 1)
+            self.assertTrue((self.base / "live.sqlite3-wal").exists())
+            output = self.base / "wal-archive.sqlite3"
+            result = backup_database(self.source, output)
+            self.assertEqual(result["documents"], 1)
+            with sqlite3.connect(output) as conn:
+                stored = conn.execute(
+                    "SELECT body FROM documents WHERE id=?", (doc["id"],)
+                ).fetchone()[0]
+            self.assertEqual(stored, "committed while reader open")
+        finally:
+            reader.close()
+
+    def test_publication_failure_preserves_source_and_removes_temporary_files(self):
+        from unittest.mock import patch
+
+        doc = self.store.create({"title": "Do not lose", "body": "original"})
+        output = self.base / "no-space.sqlite3"
+        with patch("goreedocs.recovery.os.link", side_effect=OSError(28, "No space left")):
+            with self.assertRaises(OSError):
+                backup_database(self.source, output)
+        self.assertFalse(output.exists())
+        self.assertFalse(any(self.base.glob(".goreedocs-recovery-*")))
+        self.assertEqual(self.store.get(doc["id"])["body"], "original")
+
+    def test_symlink_source_database_is_rejected(self):
+        self.store.create({"title": "Private", "body": "safe"})
+        alias = self.base / "alias.sqlite3"
+        alias.symlink_to(self.source)
+        with self.assertRaises(RecoveryError):
+            verify_database(alias)
+        with self.assertRaises(RecoveryError):
+            backup_database(alias, self.base / "from-alias.sqlite3")
+        self.assertFalse((self.base / "from-alias.sqlite3").exists())
+
+
 if __name__ == "__main__":
     unittest.main()
