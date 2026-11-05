@@ -163,6 +163,7 @@ jobs:
           import os
           import subprocess
           import time
+          os.environ["GDK_BACKEND"] = "x11"
           for with_token in (True, False):
               runtime_env = os.environ.copy()
               if not with_token:
@@ -173,17 +174,25 @@ jobs:
                   stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
               )
               try:
-                  time.sleep(3)
-                  if process.poll() is not None:
-                      out, err = process.communicate()
-                      raise SystemExit("Packaged GTK4 process exited during startup:\\n" + err)
-                  window = subprocess.run(
-                      ["xdotool", "search", "--name", "GoreeCloud Documents"],
-                      capture_output=True, text=True, check=False,
-                  )
-                  if window.returncode != 0 or not window.stdout.strip():
+                  # GTK can take longer than three seconds to create its
+                  # window on a newly provisioned CI runner. Poll for the
+                  # actual X11 window rather than accepting a live process.
+                  deadline = time.monotonic() + 18
+                  while time.monotonic() < deadline:
+                      if process.poll() is not None:
+                          out, err = process.communicate()
+                          raise SystemExit("Packaged GTK4 process exited during startup:\\n" + err)
+                      window = subprocess.run(
+                          ["xdotool", "search", "--name", "GoreeCloud Documents"],
+                          capture_output=True, text=True, check=False,
+                      )
+                      if window.returncode == 0 and window.stdout.strip():
+                          break
+                      time.sleep(0.5)
+                  else:
                       raise SystemExit(
-                          "Installed GTK4 client did not create a named window"
+                          "Installed GTK4 client did not create a named window "
+                          "within 18 seconds (display: " + str(os.environ.get("DISPLAY")) + ")"
                       )
                   print("Installed GTK4 window visible, environment token:", with_token)
               finally:
