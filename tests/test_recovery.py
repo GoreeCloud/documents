@@ -1,0 +1,111 @@
+"""Recovery regression tests: WAL-safe backup, private files, and safe restore."""
+from pathlib import Path
+import sqlite3
+from tempfile import TemporaryDirectory
+import unittest
+
+from goreedocs.recovery import (
+    RecoveryError, backup_database, restore_database, verify_database,
+)
+from goreedocs.server import Store
+
+
+class RecoveryTest(unittest.TestCase):
+    def setUp(self):
+        self.temp = TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.base = Path(self.temp.name)
+        self.source = self.base / "live.sqlite3"
+        self.store = Store(self.source)
+
+    def test_backup_copies_complete_document_history_and_isolation(self):
+        doc = self.store.create({
+            "title": "Archive 🗂️", "body": "# Original\n\nPrivate text",
+            "folder": "Family", "format": "gcdoc", "favorite": True,
+        })
+        self.store.update(doc["id"], {"body": "# Revised"}, doc["version"])
+        self.store.create({"title": "Markdown", "body": "hello", "format": "md"})
+        target = self.base / "archive.sqlite3"
+        result = backup_database(self.source, target)
+        self.assertEqual(result["documents"], 2)
+        self.assertEqual(result["revisions"], 3)
+        self.assertEqual(verify_database(target)["documents"], 2)
+        self.assertEqual(target.stat().st_mode & 0o777, 0o600)
+        self.assertFalse((self.base / "archive.sqlite3-wal").exists())
+        with sqlite3.connect(target) as snapshot:
+            text = snapshot.execute(
+                "SELECT body FROM documents WHERE id=?", (doc["id"],)
+            ).fetchone()[0]
+            self.assertEqual(text, "# Revised")
+            self.assertEqual(snapshot.execute(
+                "SELECT count(*) FROM revisions WHERE doc_id=?", (doc["id"],)
+            ).fetchone()[0], 2)
+        self.store.update(doc["id"], {"body": "# After backup"}, 2)
+        with sqlite3.connect(target) as snapshot:
+            self.assertEqual(snapshot.execute(
+                "SELECT body FROM documents WHERE id=?", (doc["id"],)
+            ).fetchone()[0], "# Revised")
+
+    def test_restore_creates_new_database_and_revokes_snapshot_shares(self):
+        doc = self.store.create({"title": "Sensitive", "body": "Never publish"})
+        link = self.store.share(doc["id"], 24)
+        archive = self.base / "backup.sqlite3"
+        backup_database(self.source, archive)
+        restored = self.base / "restored.sqlite3"
+        result = restore_database(archive, restored)
+        self.assertTrue(result["share_links_revoked"])
+        self.assertEqual(Store(restored).get(doc["id"])["body"], "Never publish")
+        with sqlite3.connect(restored) as connection:
+            self.assertEqual(connection.execute(
+                "SELECT count(*) FROM shares WHERE revoked_at IS NULL"
+            ).fetchone()[0], 0)
+        # A restore never revokes shares in the original source or backup.
+        self.assertEqual(self.store.public(link["token"])["body"], "Never publish")
+        with sqlite3.connect(archive) as connection:
+            self.assertEqual(connection.execute(
+                "SELECT count(*) FROM shares WHERE revoked_at IS NULL"
+            ).fetchone()[0], 1)
+
+    def test_existing_destination_and_symlink_never_overwritten(self):
+        doc = self.store.create({"title": "Keep", "body": "unchanged"})
+        target = self.base / "must-not-overwrite.sqlite3"
+        target.write_bytes(b"existing bytes")
+        target.chmod(0o600)
+        with self.assertRaises(RecoveryError):
+            backup_database(self.source, target)
+        self.assertEqual(target.read_bytes(), b"existing bytes")
+        link = self.base / "symlink.sqlite3"
+        link.symlink_to(target)
+        with self.assertRaises(RecoveryError):
+            backup_database(self.source, link)
+        self.assertEqual(target.read_bytes(), b"existing bytes")
+        with self.assertRaises(RecoveryError):
+            restore_database(self.source, target)
+        self.assertEqual(self.store.get(doc["id"])["body"], "unchanged")
+
+    def test_invalid_source_and_public_backup_directory_rejected(self):
+        bad = self.base / "bad.sqlite3"
+        bad.write_bytes(b"this is not SQLite")
+        bad.chmod(0o600)
+        with self.assertRaises(RecoveryError):
+            verify_database(bad)
+        with self.assertRaises(RecoveryError):
+            restore_database(bad, self.base / "should-not-exist.sqlite3")
+        self.assertFalse((self.base / "should-not-exist.sqlite3").exists())
+        public = self.base / "public"
+        public.mkdir(mode=0o755)
+        with self.assertRaises(RecoveryError):
+            backup_database(self.source, public / "no.sqlite3")
+        self.assertFalse((public / "no.sqlite3").exists())
+
+    def test_source_must_be_owner_private(self):
+        self.store.create({"title": "Private", "body": "text"})
+        self.source.chmod(0o644)
+        with self.assertRaises(RecoveryError):
+            verify_database(self.source)
+        with self.assertRaises(RecoveryError):
+            backup_database(self.source, self.base / "blocked.sqlite3")
+
+
+if __name__ == "__main__":
+    unittest.main()
