@@ -100,24 +100,28 @@ jobs:
           import os
           import subprocess
           import time
-          process = subprocess.Popen(
-              ["/usr/bin/goreecloud-documents"],
-              cwd="/tmp", env=os.environ.copy(),
-              stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
-          )
-          try:
-              time.sleep(3)
-              if process.poll() is not None:
-                  out, err = process.communicate()
-                  raise SystemExit("Packaged GTK4 process failed to start:\\n" + err)
-              print("Packaged native GTK4 client launched under Xvfb")
-          finally:
-              process.terminate()
+          for with_token in (True, False):
+              runtime_env = os.environ.copy()
+              if not with_token:
+                  runtime_env.pop("GOREEDOCS_TOKEN", None)
+              process = subprocess.Popen(
+                  ["/usr/bin/goreecloud-documents"],
+                  cwd="/tmp", env=runtime_env,
+                  stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+              )
               try:
-                  process.communicate(timeout=6)
-              except subprocess.TimeoutExpired:
-                  process.kill()
-                  process.communicate()
+                  time.sleep(3)
+                  if process.poll() is not None:
+                      out, err = process.communicate()
+                      raise SystemExit("Packaged GTK4 process exited during startup:\\n" + err)
+                  print("GTK4 package started with environment token:", with_token)
+              finally:
+                  process.terminate()
+                  try:
+                      process.communicate(timeout=6)
+                  except subprocess.TimeoutExpired:
+                      process.kill()
+                      process.communicate()
           PY
           sudo dpkg --remove goreecloud-documents
           test ! -e /usr/bin/goreecloud-documents
