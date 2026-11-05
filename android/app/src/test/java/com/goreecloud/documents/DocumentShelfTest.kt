@@ -10,6 +10,8 @@ import org.junit.rules.TemporaryFolder
 import org.robolectric.RobolectricTestRunner
 import java.io.File
 import java.nio.file.Files
+import android.util.AtomicFile
+import org.junit.Assert.assertArrayEquals
 import org.json.JSONObject
 
 /** Reproducible app-private storage tests using an isolated filesystem. */
@@ -120,6 +122,43 @@ class DocumentShelfTest {
         }
         assertTrue(outside.listFiles().isNullOrEmpty())
         assertTrue(Files.isSymbolicLink(shortcut.toPath()))
+    }
+
+    @Test fun interruptedPendingAtomicWriteRetainsLastCommittedDocument() {
+        val shelf = DocumentShelf(temporary.root)
+        val original = shelf.create(PortableDocument("Recovery", "# Last committed"))
+        val record = File(temporary.root, "documents/${original.id}.json")
+        val committed = record.readBytes()
+
+        // Simulate process interruption after writing a truncated temporary
+        // file: do not call finishWrite() or failWrite() on this stream.
+        val pending = AtomicFile(record).startWrite()
+        pending.write("{\"body\":\"incomplete".toByteArray(Charsets.UTF_8))
+        pending.fd.sync()
+        pending.close()
+
+        val reopened = DocumentShelf(temporary.root).scan()
+        assertEquals(0, reopened.invalidFiles)
+        assertEquals(1, reopened.documents.size)
+        assertEquals(original, reopened.documents.single())
+        assertArrayEquals(committed, record.readBytes())
+    }
+
+    @Test fun explicitAtomicWriteRollbackPreservesOriginalPrivateRecord() {
+        val shelf = DocumentShelf(temporary.root)
+        val original = shelf.create(PortableDocument("Recovery", "original bytes"))
+        val record = File(temporary.root, "documents/${original.id}.json")
+        val committed = record.readBytes()
+
+        val atomic = AtomicFile(record)
+        val writing = atomic.startWrite()
+        writing.write("partially written content".toByteArray(Charsets.UTF_8))
+        atomic.failWrite(writing)
+
+        val reopened = DocumentShelf(temporary.root).scan()
+        assertEquals(0, reopened.invalidFiles)
+        assertEquals(listOf(original), reopened.documents)
+        assertArrayEquals(committed, record.readBytes())
     }
 
 }
