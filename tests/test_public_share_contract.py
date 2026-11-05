@@ -137,7 +137,7 @@ class PublicShareContractTest(unittest.TestCase):
         status, doc, _ = self.get(owner_path, "Bearer " + self.owner_token)
         self.assertEqual(status, 200)
         self.assertEqual(doc["version"], 1)
-        self.assertEqual(doc["body"], "# Example\\nSynthetic content only.")
+        self.assertEqual(doc["body"], "# Example\nSynthetic content only.")
         code, docs, _ = self.get(
             "/api/documents", "Bearer " + self.owner_token
         )
