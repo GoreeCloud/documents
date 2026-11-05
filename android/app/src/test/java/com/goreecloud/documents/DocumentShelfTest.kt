@@ -62,6 +62,28 @@ class DocumentShelfTest {
         assertEquals("{truncated", other.readText(Charsets.UTF_8))
     }
 
+    @Test fun invalidUtf8IsNotSilentlyReplacedOrLoaded() {
+        val shelf = DocumentShelf(temporary.root)
+        val valid = shelf.create(PortableDocument("Safe", "saved"))
+        val invalidId = "00000000-0000-0000-0000-000000000001"
+        val file = File(temporary.root, "documents/$invalidId.json")
+        val prefix = (
+            """{"kind":"goreecloud.android.local-document","schema_version":1,"id":"$invalidId","title":"Bad """
+        ).toByteArray(Charsets.UTF_8)
+        val suffix = (
+            """","body":"private","folder":"","format":"gcdoc"}"""
+        ).toByteArray(Charsets.UTF_8)
+        // Invalid two-byte UTF-8 start followed by a plain ASCII byte.
+        val original = prefix + byteArrayOf(0xC3.toByte(), 0x28) + suffix
+        file.writeBytes(original)
+
+        val scan = shelf.scan()
+        assertEquals(1, scan.documents.size)
+        assertEquals(valid.id, scan.documents.single().id)
+        assertEquals(1, scan.invalidFiles)
+        assertTrue(file.readBytes().contentEquals(original))
+    }
+
     @Test fun failedOversizedWriteDoesNotDestroyExistingDocument() {
         val shelf = DocumentShelf(temporary.root)
         val initial = shelf.create(PortableDocument("Original", "unchanged"))
