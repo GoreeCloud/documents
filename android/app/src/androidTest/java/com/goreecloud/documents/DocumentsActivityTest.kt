@@ -51,4 +51,38 @@ class DocumentsActivityTest {
         assertEquals("# Saved on-device",
             docs.first { it.document.title == "Durable Android Proof" }.document.body)
     }
+    @Test fun discardingUnsavedEditsDoesNotOverwritePrivateDocument() {
+        awaitText("+ New")
+        rule.onNodeWithText("+ New").performClick()
+        awaitText("Created and saved in private device storage")
+
+        val original = DocumentShelf(rule.activity.filesDir).scan().documents
+            .first { it.document.title == "Untitled document" }
+
+        rule.onAllNodes(hasSetTextAction())[0]
+            .performTextReplacement("Unsaved scratch title")
+        rule.onAllNodes(hasSetTextAction())[2]
+            .performTextReplacement("# This must not reach the saved record")
+        rule.onNodeWithText("Library").performClick()
+        awaitText("Discard unsaved edits?")
+
+        rule.onNodeWithText("Keep editing").performClick()
+        rule.onAllNodes(hasSetTextAction())[0]
+            .assertTextContains("Unsaved scratch title")
+
+        rule.onNodeWithText("Library").performClick()
+        rule.onNodeWithText("Discard and continue").performClick()
+        awaitText("+ New")
+
+        val afterDiscard = DocumentShelf(rule.activity.filesDir).scan().documents
+            .single { it.id == original.id }
+        assertEquals(original.document, afterDiscard.document)
+
+        rule.activityRule.scenario.recreate()
+        awaitText("Private document library ready")
+        val afterRecreation = DocumentShelf(rule.activity.filesDir).scan().documents
+            .single { it.id == original.id }
+        assertEquals(original.document, afterRecreation.document)
+    }
+
 }
