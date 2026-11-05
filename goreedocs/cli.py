@@ -5,16 +5,39 @@ import os
 from pathlib import Path
 import sys
 from urllib.error import HTTPError, URLError
-from urllib.parse import quote, urlencode
-from urllib.request import Request, urlopen
+from urllib.parse import quote, urlencode, urlsplit
+from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_opener
+
+
+class _NoRedirect(HTTPRedirectHandler):
+    """Never forward document bearer tokens or mutable requests via a redirect."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        raise ValueError("Document API redirects are not permitted")
+
+
+def validate_endpoint(value):
+    """Reject ambiguous authorities, credentials, insecure remote hosts and URL suffixes."""
+    if not isinstance(value, str) or not value or any(c.isspace() for c in value):
+        raise ValueError("Invalid document endpoint")
+    try:
+        url = urlsplit(value)
+        port = url.port  # raises ValueError for invalid ports
+        hostname = url.hostname
+        if (url.scheme not in ("http", "https") or not hostname or
+                url.username is not None or url.password is not None or
+                url.path not in ("", "/") or url.query or url.fragment or
+                port == 0):
+            raise ValueError("Invalid document endpoint")
+        if url.scheme == "http" and hostname not in ("127.0.0.1", "localhost", "::1"):
+            raise ValueError("Only loopback HTTP or HTTPS document endpoints are allowed")
+    except ValueError as error:
+        raise ValueError("Invalid or unsafe document endpoint") from error
+    return value.rstrip("/")
 
 
 def call(path, method="GET", payload=None):
-    endpoint = os.environ.get("GOREEDOCS_URL", "http://127.0.0.1:8735").rstrip("/")
-    if not (endpoint.startswith("http://127.0.0.1:") or
-            endpoint.startswith("http://localhost:") or
-            endpoint.startswith("https://")):
-        raise ValueError("Only loopback HTTP or HTTPS document endpoints are allowed")
+    endpoint = validate_endpoint(os.environ.get("GOREEDOCS_URL", "http://127.0.0.1:8735"))
     token = os.environ.get("GOREEDOCS_TOKEN", "")
     if not token:
         raise ValueError("Set GOREEDOCS_TOKEN before using the CLI")
@@ -25,7 +48,7 @@ def call(path, method="GET", payload=None):
         headers["Content-Type"] = "application/json"
     request = Request(endpoint + path, method=method, data=data, headers=headers)
     try:
-        with urlopen(request, timeout=20) as response:
+        with build_opener(ProxyHandler({}), _NoRedirect()).open(request, timeout=20) as response:
             return json.load(response)
     except HTTPError as e:
         try:
