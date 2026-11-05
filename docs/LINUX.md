@@ -1,6 +1,6 @@
 # GoreeCloud Documents — Linux GTK4 development client
 
-**Status:** Native Linux UI source preview. Not packaged, visually accepted, runtime-certified, or released.
+**Status:** Native GTK4 source preview, with an experimental Debian package builder. Package build/install/uninstall tests are under review; this is not a stable or supported release.
 
 ## Requirements
 
@@ -16,7 +16,7 @@ export GOREEDOCS_URL=http://127.0.0.1:8735
 python3 -m goreedocs.linux
 ```
 
-The client reads `GOREEDOCS_TOKEN` from the environment, as the existing CLI does. Do not put tokens into shell history or publicly readable files. If GTK4 bindings or a display server are unavailable, the client cannot launch. The source has no bundled installer or APK and cannot be represented as an installed Linux application.
+The client reads `GOREEDOCS_TOKEN` from the environment, as the existing CLI does. Do not put tokens into shell history or publicly readable files. If GTK4 bindings or a display server are unavailable, the client cannot launch. The optional Debian package below is a separate source-built, unshipped preview and does not itself establish desktop acceptance.
 
 ## Features in this development slice
 
@@ -27,7 +27,7 @@ The client reads `GOREEDOCS_TOKEN` from the environment, as the existing CLI doe
 - Unsaved-change protection when changing documents or closing the window; explicit Discard edits action.
 - HTTP work runs in background worker threads; UI updates return to the GTK main loop.
 
-The desktop client has **no standalone offline document store**, system integration package, per-user authentication dialog, native import/export dialogs, thumbnail image rendering, sharing controls, or established platform theme/accessibility acceptance. The web app has features not yet present in the Linux preview.
+The desktop client has **no standalone offline document store**, per-user authentication dialog, native import/export dialogs, thumbnail image rendering, sharing controls, or established platform theme/accessibility acceptance. An experimental Debian launcher and desktop-entry package exists, but has not been released and cannot solve these gaps. The web app has features not yet present in the Linux preview.
 
 ## Design and verification
 
@@ -35,4 +35,34 @@ The UI uses the canonical GC UI semantic intent: Canvas for the native window, S
 
 The Python unit suite checks the REST transport contract and basic GTK4 wiring without importing GTK on CI. It **does not launch a graphical window**. Follow the repository's release gates before claiming any supported Linux distribution or stable package.
 
-Because this native client calls `goreedocs.cli.call`, integrate and validate the security fix in draft PR #2 before productionizing or distributing it.
+Because this native client calls `goreedocs.cli.call`, it includes the verified redirect-safe CLI source from merged PR #2. The portable Python service and all platform-specific acceptance criteria remain independent.
+
+## Experimental Debian package build
+
+The source tree includes a no-overwrite, offline `dpkg-deb` packager for
+development-only Linux distribution testing:
+
+```sh
+python3 packaging/linux/build_deb.py
+dpkg-deb --contents dist/goreecloud-documents_0.1.0~dev1_all.deb
+```
+
+The package includes only the minimum GTK4 client Python files, a launcher,
+a `.desktop` entry and the official GC UI SVG mark with its Apache-2.0
+license and provenance. It declares native runtime dependencies on Python
+3.11+, `python3-gi` and `gir1.2-gtk-4.0`. It does **not** install or run
+the Documents service, configure a gateway, migrate databases, run privileged
+maintainer scripts, or store credentials.
+
+The build tool refuses to overwrite an existing package. It never installs
+the package or alters the host application state. Disposable Ubuntu CI runners
+are used for independent build, install, GTK4 launch and uninstall smoke tests.
+Passing them establishes only package mechanics on the tested environment.
+Do not distribute this development package before security review, a native
+token/session login flow, manual desktop quality checks, update/rollback review,
+and acceptance for each target Linux distribution.
+
+The installed launcher uses isolated Python imports so untrusted current
+working directories, `PYTHONPATH` and user site-packages cannot replace the
+packaged GTK code. A desktop launched from an application menu may lack a
+`GOREEDOCS_TOKEN`; that authentication and onboarding gap remains open.
