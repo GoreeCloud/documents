@@ -29,6 +29,19 @@ The client reads `GOREEDOCS_TOKEN` if supplied, but also shows a native password
 
 The desktop client has **no standalone offline document store**, OS keyring integration, native import/export dialogs, thumbnail image rendering, sharing controls, or established platform theme/accessibility acceptance. An experimental Debian launcher and desktop-entry package exists, but has not been released and cannot solve these gaps. The web app has features not yet present in the Linux preview.
 
+## Native keyboard access
+
+In the GTK4 preview, `Ctrl+N` creates a document, `Ctrl+S` saves current
+edits, `Ctrl+F` focuses library search, `Ctrl+E` focuses the Markdown editor,
+and `F5` refreshes the library. The new and save actions obey the existing
+unsaved-change and pending-operation guards; a shortcut does not bypass
+optimistic version checks. The native window owns these actions, so focus can
+move between search results and the editor.
+
+These shortcuts are supported at the source and virtual-display startup-test
+level. Full screen-reader, alternative keyboard-layout, focus-order, and
+high-contrast accessibility checks on an actual desktop remain outstanding.
+
 ## Design and verification
 
 The UI uses the canonical GC UI semantic intent: Canvas for the native window, Surface for reading and editing, and a bounded sidebar/navigation layer. Its accent and radii map to verified Iris reference values in `GoreeCloud/gc-ui`. A complete native token adapter, high-contrast audit, keyboard screen-reader test, light/dark visual review, installation/removal testing and screenshot-led acceptance remain outstanding.
