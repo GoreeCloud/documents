@@ -34,6 +34,18 @@ class DocumentFormatTest(unittest.TestCase):
         self.assertEqual(md_import["title"], "my-note")
         self.assertEqual(md_import["format"], "md")
 
+    def test_android_and_python_accept_same_reference_file(self):
+        reference = (ROOT / "android/app/src/test/resources/fixtures/reference-v1.gcdoc")
+        content = reference.read_text(encoding="utf-8")
+        imported = self.db.import_file({"filename": reference.name, "content": content})
+        self.assertEqual(imported["title"], "Reference Notes ✨")
+        self.assertEqual(imported["folder"], "Team/Reference")
+        self.assertEqual(imported["body"], "# Interoperability\\n\\nRésumé — 🔒\\n\\n- Markdown\\n- UTF-8\\n")
+        exported = self.db.export(imported["id"])
+        envelope = json.loads(exported["content"])
+        original = json.loads(content)
+        self.assertEqual(envelope, original)
+
     def test_bad_native_files_rejected(self):
         for name, content in [
             ("evil.gcdoc", "{}"),
