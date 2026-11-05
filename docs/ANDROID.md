@@ -10,20 +10,20 @@ The Android preview deliberately requests **no INTERNET or broad storage permiss
 
 ## Implemented source
 
-- A local session homepage with searchable document cards, grid/list preference and a clear file-format badge in the upper-right of every thumbnail.
+- A native on-device library homepage that reloads app-private saved records at startup, with searchable document cards, grid/list preference and a file-format badge in the upper-right of every thumbnail.
 - Create a new GoreeCloud document, open existing `.gcdoc` or plain UTF-8 `.md` using the Android system document picker, and edit the title, logical folder and Markdown source.
-- Export the current document through Android's **CreateDocument** picker. Saving uses an explicitly selected destination; it does not silently overwrite the original input.
-- Unsaved-edit confirmation when leaving the editor, plus a manual discard action.
+- **Save** edits to the app-private atomic document record; separately **Export** an explicit copy through Android's **CreateDocument** picker. Export does not mark local unsaved edits as saved or silently overwrite the original imported file.
+- Unsaved-edit confirmation on library navigation and Android Back, plus a manual discard action; newer edits made during background Save remain marked unsaved.
 - A strict, bounded `.gcdoc` v1 JSON decoder and encoder with schema, UTF-8, document-size, and folder validation aligned to the backend format.
 - Native light/dark color schemes using GC UI's verified Iris palette role references.
 
-**Caution:** Session document cards exist only in memory and can disappear when the application is terminated or recreated. The grid/list **preference only** persists in app preferences. A new document is **not durable until exported to a file**. Saving to SAF may fail if the selected document provider cannot write or runs out of space; verify the saved file externally. The preview does not perform atomic external-provider writes or encrypted off-device backups.
+**Caution:** The private library now stores document records locally, but the **running Android UI has not yet passed process-death/recreation testing on a real device or emulator**. A new blank document is persisted when created; later edits are durable only after an explicit successful **Save**. Unsaved edits can be lost on forced termination. App-private files are normally removed on uninstall, and Android backup is disabled. A SAF Export is an independent copy that may fail or be cancelled; verify it externally. The preview does not provide encrypted off-device backup, atomic writes to third-party document providers, or cloud sync.
 
-## App-private storage component — implemented, not wired
+## App-private storage component — connected in source, awaiting device acceptance
 
-The draft branch now also contains `android/app/src/main/java/com/goreecloud/documents/DocumentShelf.kt`, a native app-private, atomic-file document store. Its own regression tests cover file reopening, updating records, invalid identifiers, malformed entries and oversized content. The Android workflow passed at exact branch head `eea502741be35ad3572fa23f0aee898d4aae66df`, including `testDebugUnitTest` and `assembleDebug`.
+The branch includes `android/app/src/main/java/com/goreecloud/documents/DocumentShelf.kt`, a native app-private, atomic-file document store. Its Robolectric regression tests cover reopening, updating, invalid identifiers, malformed and oversized entries. `MainActivity.kt` now loads shelf records on startup, persists newly created and imported documents, and saves edited records on a background thread. Export is a separate SAF operation that does not update the private save snapshot. CI run [42012234517](https://github.com/GoreeCloud/documents/actions/runs/42012234517) passed JVM tests and `assembleDebug` at exact code head `a3dd1be535f2d68be2fbc450e563099d9e4ebf38`.
 
-**This component is not yet connected to `MainActivity.kt`**: the current on-screen document list still exists only for the session. The attempted UI integration change was blocked by platform safety checks. Do not infer persistent UI behavior or successful recovery on an Android device from the storage-component unit tests. Required follow-up: review and authorize a complete data-flow integration; verify Save and Export remain distinct and that unsaved drafts are not silently discarded; run UI lifecycle and interruption tests before describing the native Android library as durable.
+**Verification boundary:** CI proves Kotlin compilation, codec/shelf unit tests and a debug build, not full interactive behavior on physical Android. Mandatory follow-up is an emulator/device test for create → terminate → relaunch → edit → Save → relaunch; verify dirty-state retention during concurrent edits, SAF cancellation, read/write failures, storage exhaustion, app-background behavior, accessibility and corruption recovery. Do not declare production durability or distribute an APK without those checks.
 
 ## Corrupted local-record handling
 
@@ -35,8 +35,9 @@ unreadable source files and reports their count; it does not automatically
 erase or rewrite damaged documents. Robolectric coverage includes invalid
 UTF-8 and preservation of the original bytes.
 
-This is independently tested library code, **not yet connected to the Android
-screen**. A green unit test does not establish full app lifecycle durability.
+The strict decoder is now invoked by the Android UI's saved-document loading
+path through `DocumentShelf.scan()`. A green unit test still does not establish
+full app lifecycle durability or recovery behavior on a physical device.
 
 ## Shared native-format interoperability fixture
 
