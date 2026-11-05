@@ -8,6 +8,9 @@ on:
     paths:
       - "android/**"
       - ".github/workflows/android.yml"
+concurrency:
+  group: android-documents-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
@@ -31,7 +34,7 @@ jobs:
         with:
           gradle-version: "8.10.2"
       - name: Verify Android codec and compile debug app
-        run: gradle -p android :app:testDebugUnitTest :app:assembleDebug --no-daemon
+        run: gradle -p android :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest --no-daemon
       - name: Report package without distributing an APK
         run: |
           test -s android/app/build/outputs/apk/debug/app-debug.apk
