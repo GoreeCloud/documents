@@ -14,6 +14,8 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import org.junit.Assert.assertArrayEquals
+import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -117,6 +119,26 @@ class DocumentsActivityTest {
             assertEquals(original.document, onDisk.document)
         } finally {
             Intents.release()
+        }
+    }
+
+    @Test fun corruptedPrivateRecordIsPreservedAndWarnedAfterRecreation() {
+        awaitText("Private document library ready")
+        val directory = File(rule.activity.filesDir, "documents")
+        check(directory.isDirectory || directory.mkdirs())
+        val filename = "00000000-0000-0000-0000-000000000099.json"
+        val damaged = File(directory, filename)
+        val originalBytes = byteArrayOf(0x7B, 0xC3.toByte(), 0x28, 0x7D)
+        check(!damaged.exists()) { "Test fixture already exists" }
+
+        try {
+            damaged.writeBytes(originalBytes)
+            rule.activityRule.scenario.recreate()
+            awaitText("Some saved entries are unreadable. Their files were preserved.")
+            assertArrayEquals(originalBytes, damaged.readBytes())
+        } finally {
+            // Remove only the temporary malformed fixture created by this test.
+            damaged.delete()
         }
     }
 
