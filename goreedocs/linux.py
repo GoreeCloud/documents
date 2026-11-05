@@ -97,7 +97,8 @@ def main(argv=None):
             self.auth_strip.add_css_class("gc-auth")
             token_label = Gtk.Label(label="_Owner API token", use_underline=True)
             self.auth_strip.append(token_label)
-            self.auth_entry = Gtk.PasswordEntry()
+            self.auth_entry = Gtk.Entry()
+            self.auth_entry.set_visibility(False)
             self.auth_entry.set_hexpand(True)
             self.auth_entry.set_placeholder_text("Paste authorized local document token")
             self.auth_entry.set_tooltip_text(
