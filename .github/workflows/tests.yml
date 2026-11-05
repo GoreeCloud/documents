@@ -106,20 +106,18 @@ jobs:
                           raise AssertionError(
                               f"Missing keyboard shortcut for {name}: {accelerators}"
                           )
-                  window.activate_action("search-documents", None)
-                  # Gtk.SearchEntry contains a child Gtk.Text which may own focus.
+                  # Without a token, the masked login field owns initial focus.
+                  # Do not claim search can be used before authentication.
                   focus = window.get_focus()
-                  focus_path = []
-                  found_search = False
+                  found_masked_login = False
                   while focus is not None:
-                      focus_path.append(type(focus).__name__)
-                      if isinstance(focus, Gtk.SearchEntry):
-                          found_search = True
+                      if isinstance(focus, Gtk.Entry) and not focus.get_visibility():
+                          found_masked_login = True
                           break
                       focus = focus.get_parent()
-                  if not found_search:
-                      raise AssertionError("Search focus path: " + str(focus_path))
-                  results.append("Native GTK4 window actions and search focus passed")
+                  if not found_masked_login:
+                      raise AssertionError("No focused masked owner-token field")
+                  results.append("Native GTK4 window actions and masked login passed")
               except Exception as error:
                   results.append("Failed: " + str(error))
               finally:
@@ -128,7 +126,7 @@ jobs:
 
           GLib.timeout_add(1200, inspect)
           status = linux.main(["goreecloud-documents"])
-          if status != 0 or results != ["Native GTK4 window actions and search focus passed"]:
+          if status != 0 or results != ["Native GTK4 window actions and masked login passed"]:
               raise SystemExit(f"Native action runtime check failed: {status} {results}")
           print(results[0])
           PY
