@@ -268,7 +268,7 @@ private fun DocumentsScreen(activity: MainActivity) {
                     Box(Modifier.fillMaxWidth().weight(1f).padding(28.dp), contentAlignment = Alignment.Center) {
                         Text(
                             "Your private documents appear here after saving.\n" +
-                                "Import .gcdoc or .md, or create a new page."
+                                "Import .gcdoc or .md, or create a new page.",
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
