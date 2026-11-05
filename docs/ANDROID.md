@@ -19,6 +19,12 @@ The Android preview deliberately requests **no INTERNET or broad storage permiss
 
 **Caution:** Session document cards exist only in memory and can disappear when the application is terminated or recreated. The grid/list **preference only** persists in app preferences. A new document is **not durable until exported to a file**. Saving to SAF may fail if the selected document provider cannot write or runs out of space; verify the saved file externally. The preview does not perform atomic external-provider writes or encrypted off-device backups.
 
+## App-private storage component — implemented, not wired
+
+The draft branch now also contains `android/app/src/main/java/com/goreecloud/documents/DocumentShelf.kt`, a native app-private, atomic-file document store. Its own regression tests cover file reopening, updating records, invalid identifiers, malformed entries and oversized content. The Android workflow passed at exact branch head `eea502741be35ad3572fa23f0aee898d4aae66df`, including `testDebugUnitTest` and `assembleDebug`.
+
+**This component is not yet connected to `MainActivity.kt`**: the current on-screen document list still exists only for the session. The attempted UI integration change was blocked by platform safety checks. Do not infer persistent UI behavior or successful recovery on an Android device from the storage-component unit tests. Required follow-up: review and authorize a complete data-flow integration; verify Save and Export remain distinct and that unsaved drafts are not silently discarded; run UI lifecycle and interruption tests before describing the native Android library as durable.
+
 ## Toolchain
 
 The development project is located under `android/`. It currently uses the known GoreeCloud Tasks Android baseline: Android Gradle Plugin 8.8.2, Kotlin/Compose compiler 2.0.21, Compose BOM 2025.02.00, Java 17 and Android SDK 35. These versions are a project development baseline, not an assertion that all dependencies are at the latest supported release.
