@@ -67,3 +67,57 @@ jobs:
                   process.kill()
                   process.communicate()
           PY
+
+  linux-debian-package:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install native GTK4 runtime and virtual display on disposable runner
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq python3-gi gir1.2-gtk-4.0 xvfb
+      - name: Build and inspect offline Debian package
+        run: |
+          python3 packaging/linux/build_deb.py
+          file='dist/goreecloud-documents_0.1.0~dev1_all.deb'
+          test -s "$file"
+          test "$(dpkg-deb -f "$file" Package)" = goreecloud-documents
+          test "$(dpkg-deb -f "$file" Architecture)" = all
+          dpkg-deb --contents "$file" | grep 'usr/share/applications/com.goreecloud.Documents.desktop'
+          dpkg-deb --contents "$file" | grep 'usr/share/doc/goreecloud-documents/LICENSE.GC-UI'
+          if python3 packaging/linux/build_deb.py; then
+            echo "ERROR: packager unexpectedly overwrote an existing package"
+            exit 1
+          fi
+      - name: Test native package install, startup and uninstall
+        env:
+          GOREEDOCS_TOKEN: ci-only-placeholder
+        run: |
+          sudo dpkg --install 'dist/goreecloud-documents_0.1.0~dev1_all.deb'
+          test -x /usr/bin/goreecloud-documents
+          xvfb-run -a /usr/bin/python3 - <<'PY'
+          import os
+          import subprocess
+          import time
+          process = subprocess.Popen(
+              ["/usr/bin/goreecloud-documents"],
+              cwd="/tmp", env=os.environ.copy(),
+              stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+          )
+          try:
+              time.sleep(3)
+              if process.poll() is not None:
+                  out, err = process.communicate()
+                  raise SystemExit("Packaged GTK4 process failed to start:\\n" + err)
+              print("Packaged native GTK4 client launched under Xvfb")
+          finally:
+              process.terminate()
+              try:
+                  process.communicate(timeout=6)
+              except subprocess.TimeoutExpired:
+                  process.kill()
+                  process.communicate()
+          PY
+          sudo dpkg --remove goreecloud-documents
+          test ! -e /usr/bin/goreecloud-documents
