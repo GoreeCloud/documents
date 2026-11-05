@@ -145,11 +145,15 @@ class DocumentsActivityTest {
 
     @Test fun failedExternalProviderWriteLeavesSavedDocumentIntact() {
         awaitText("+ New")
+        val priorIds = DocumentShelf(rule.activity.filesDir).scan().documents
+            .map { it.id }.toSet()
         rule.onNodeWithText("+ New").performClick()
         awaitText("Created and saved in private device storage")
 
+        // Instrumentation tests share an app sandbox. Select the newly created
+        // record by ID, never by a title another test may also have used.
         val original = DocumentShelf(rule.activity.filesDir).scan().documents
-            .single { it.document.title == "Untitled document" }
+            .single { it.id !in priorIds }
         rule.onAllNodes(hasSetTextAction())[0]
             .performTextReplacement("Unsaved after provider failure")
         rule.onNodeWithText("Save").assertIsEnabled()
