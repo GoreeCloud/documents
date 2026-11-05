@@ -25,6 +25,16 @@ The draft branch now also contains `android/app/src/main/java/com/goreecloud/doc
 
 **This component is not yet connected to `MainActivity.kt`**: the current on-screen document list still exists only for the session. The attempted UI integration change was blocked by platform safety checks. Do not infer persistent UI behavior or successful recovery on an Android device from the storage-component unit tests. Required follow-up: review and authorize a complete data-flow integration; verify Save and Export remain distinct and that unsaved drafts are not silently discarded; run UI lifecycle and interruption tests before describing the native Android library as durable.
 
+## Shared native-format interoperability fixture
+
+The same public, non-sensitive reference file,
+`android/app/src/test/resources/fixtures/reference-v1.gcdoc`, is parsed by both
+the Python storage/import test and the Android/JVM codec test. It exercises a
+v1 native document, UTF-8 Unicode, Markdown line breaks, logical folder paths
+and re-export equivalence. This fixture provides a specific, reproducible
+cross-platform contract; it is not a substitute for all possible property,
+corruption or future-version compatibility tests.
+
 ## Toolchain
 
 The development project is located under `android/`. It currently uses the known GoreeCloud Tasks Android baseline: Android Gradle Plugin 8.8.2, Kotlin/Compose compiler 2.0.21, Compose BOM 2025.02.00, Java 17 and Android SDK 35. These versions are a project development baseline, not an assertion that all dependencies are at the latest supported release.
