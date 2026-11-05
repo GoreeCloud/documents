@@ -42,7 +42,7 @@ def main(argv=None):
     try:
         import gi
         gi.require_version("Gtk", "4.0")
-        from gi.repository import Gdk, GLib, Gtk, Pango
+        from gi.repository import Gdk, Gio, GLib, Gtk, Pango
     except (ImportError, ValueError) as exc:
         print("GTK4 and its Python GObject bindings are required: " + str(exc),
               file=sys.stderr)
@@ -82,9 +82,11 @@ def main(argv=None):
             header.pack_end(self.discard_button)
             self.save_button = Gtk.Button(label="Save")
             self.save_button.add_css_class("gc-primary")
+            self.save_button.set_tooltip_text("Save document changes (Ctrl+S)")
             self.save_button.connect("clicked", self.save)
             header.pack_end(self.save_button)
             self.new_button = Gtk.Button(label="+ New")
+            self.new_button.set_tooltip_text("Create a document (Ctrl+N)")
             self.new_button.connect("clicked", self.create)
             header.pack_end(self.new_button)
             self.set_titlebar(header)
@@ -118,6 +120,7 @@ def main(argv=None):
             sidebar.add_css_class("gc-sidebar")
             self.search = Gtk.SearchEntry()
             self.search.set_placeholder_text("Search documents")
+            self.search.set_tooltip_text("Search document titles, contents and folders (Ctrl+F)")
             self.search.connect("search-changed", self.search_changed)
             sidebar.append(self.search)
             self.results = Gtk.Label(label="Your documents")
@@ -206,6 +209,7 @@ def main(argv=None):
                 Gtk.StyleContext.add_provider_for_display(
                     display, css, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
                 )
+            self.install_keyboard_actions(application)
             self.connect("close-request", self.prevent_data_loss)
             self.set_editor_enabled(False)
             self.present()
@@ -219,6 +223,21 @@ def main(argv=None):
                     "Enter your local owner token to connect. It will not be saved."
                 )
                 self.auth_entry.grab_focus()
+
+        def install_keyboard_actions(self, application):
+            """Native window actions; GTK handles keyboard layouts and focus."""
+            bindings = (
+                ("new-document", ("<Primary>n",), self.create),
+                ("save-document", ("<Primary>s",), self.save),
+                ("search-documents", ("<Primary>f",), self.search.grab_focus),
+                ("refresh-library", ("F5",), lambda: self.refresh(True)),
+                ("focus-editor", ("<Primary>e",), self.body_view.grab_focus),
+            )
+            for name, shortcuts, handler in bindings:
+                action = Gio.SimpleAction.new(name, None)
+                action.connect("activate", lambda *_ignored, fn=handler: fn())
+                self.add_action(action)
+                application.set_accels_for_action("win." + name, list(shortcuts))
 
         def connect_session(self, *_):
             if self.busy:
