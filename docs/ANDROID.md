@@ -25,6 +25,19 @@ The draft branch now also contains `android/app/src/main/java/com/goreecloud/doc
 
 **This component is not yet connected to `MainActivity.kt`**: the current on-screen document list still exists only for the session. The attempted UI integration change was blocked by platform safety checks. Do not infer persistent UI behavior or successful recovery on an Android device from the storage-component unit tests. Required follow-up: review and authorize a complete data-flow integration; verify Save and Export remain distinct and that unsaved drafts are not silently discarded; run UI lifecycle and interruption tests before describing the native Android library as durable.
 
+## Corrupted local-record handling
+
+The app-private `DocumentShelf` now reuses the strict UTF-8 decoder from
+`DocumentCodec` when inspecting local JSON records. Malformed byte sequences
+are rejected instead of silently being replaced by the Unicode replacement
+character, which could alter saved text without permission. The scan preserves
+unreadable source files and reports their count; it does not automatically
+erase or rewrite damaged documents. Robolectric coverage includes invalid
+UTF-8 and preservation of the original bytes.
+
+This is independently tested library code, **not yet connected to the Android
+screen**. A green unit test does not establish full app lifecycle durability.
+
 ## Shared native-format interoperability fixture
 
 The same public, non-sensitive reference file,
