@@ -14,4 +14,14 @@ Operations are bounded by request size, document size, limited list page size an
 
 Treat documents and model-generated content as untrusted. The MCP bridge requires a separate trusted model host and must only be granted permissions approved by the owner. It has no sharing/publication tool. A prompt-injected document must never override host policy or become authority to execute destructive actions.
 
+**Backup and restore threat model:** The development recovery utility stores
+unencrypted SQLite snapshots containing private documents and revision history.
+It requires owner-private source files and a pre-existing owner-private backup
+directory; it creates only new no-overwrite output files. Restored copies
+revoke historical share links without modifying the live source database.
+Backups require separate encrypted, access-controlled off-device custody,
+retention, integrity checks, and restore testing. A passing SQLite integrity
+check is not proof of disaster recovery readiness. See
+[docs/RECOVERY.md](docs/RECOVERY.md) for exact commands and acceptance gates.
+
 Report vulnerabilities privately to the repository owner without publishing credentials, private documents or exploitable secrets.

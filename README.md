@@ -13,6 +13,7 @@
 - One authenticated JSON REST API, a Python CLI, and a local experimental stdio MCP bridge for AI clients that permit tools.
 - Read-only share URLs with expiration and explicit revocation. Trash permanently revokes any previously issued share links.
 - SQLite persistence with a write-ahead log, snapshots per revision, and stale-update protection via required version checks.
+- Development-only, owner-private SQLite online backups and isolated no-overwrite restores with integrity/schema checks and restored-share revocation. See [Recovery](docs/RECOVERY.md) for commands, security boundaries and release gates.
 
 GoreeCloud Docs complements [GoreeCloud Drive](https://github.com/GoreeCloud/drive) (general files and sharing) and [GoreeCloud Markdown](https://github.com/GoreeCloud/markdown) (standalone local editing). These integrations are not yet connected. Native Linux GTK4 client and Android app are separate development milestones; the responsive browser is not an Android APK.
 
