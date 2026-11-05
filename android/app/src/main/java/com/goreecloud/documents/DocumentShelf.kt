@@ -73,7 +73,8 @@ class DocumentShelf(private val appFilesDir: File) {
         }
         val atomic = AtomicFile(record)
         val bytes = atomic.openRead().use { DocumentCodec.readLimited(it) }
-        val payload = JSONObject(String(bytes, Charsets.UTF_8))
+        // A damaged local record must not be silently decoded with U+FFFD replacements.
+        val payload = JSONObject(DocumentCodec.decodeUtf8(bytes))
         val allowed = setOf("kind", "schema_version", "id", "title", "body", "folder", "format")
         val keys = payload.keys()
         while (keys.hasNext()) require(keys.next() in allowed) { "Unknown local document field" }
