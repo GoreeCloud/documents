@@ -62,6 +62,13 @@ class NativeLinuxContractTest(unittest.TestCase):
         self.assertIn("session_request", source)
         self.assertIn('session["token"] = ""', source)
         self.assertIn("self.auth_strip.set_visible(True)", source)
+        self.assertIn("self.install_keyboard_actions(application)", source)
+        self.assertIn("Gio.SimpleAction.new(name, None)", source)
+        self.assertIn('application.set_accels_for_action("win." + name, list(shortcuts))', source)
+        for shortcut in ("<Primary>n", "<Primary>s", "<Primary>f",
+                         "F5", "<Primary>e"):
+            with self.subTest(shortcut=shortcut):
+                self.assertIn(shortcut, source)
 
 
 if __name__ == "__main__":
