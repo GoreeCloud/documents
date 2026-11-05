@@ -33,7 +33,7 @@ The desktop client has **no standalone offline document store**, OS keyring inte
 
 The UI uses the canonical GC UI semantic intent: Canvas for the native window, Surface for reading and editing, and a bounded sidebar/navigation layer. Its accent and radii map to verified Iris reference values in `GoreeCloud/gc-ui`. A complete native token adapter, high-contrast audit, keyboard screen-reader test, light/dark visual review, installation/removal testing and screenshot-led acceptance remain outstanding.
 
-The Python unit suite checks the REST transport contract and basic GTK4 wiring without importing GTK on CI. It **does not launch a graphical window**. Follow the repository's release gates before claiming any supported Linux distribution or stable package.
+The Python test suite validates REST transport, in-memory token isolation, and the actual `DesktopAPI` against a real local `Service` instance (including authenticated create/list/read/save, version conflict rejection, and invalid credential handling). This verifies the client-to-service contract, not the GUI's visual and interactive behavior. Separate Xvfb CI tests start the GTK4 window and the packaged launcher, both with and without a pre-provisioned token. Follow the repository's release gates before claiming any supported Linux distribution or stable package.
 
 Because this native client calls `goreedocs.cli.call`, it includes the verified redirect-safe CLI source from merged PR #2. The portable Python service and all platform-specific acceptance criteria remain independent.
 
