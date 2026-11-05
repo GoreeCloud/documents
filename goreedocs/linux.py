@@ -3,6 +3,7 @@
 GTK is imported only when launched: backend integration remains unit-testable
 without a graphical display or PyGObject on CI.
 """
+import os
 from threading import Thread
 from urllib.parse import quote, urlencode
 import sys
@@ -47,7 +48,13 @@ def main(argv=None):
               file=sys.stderr)
         return 2
 
-    api = DesktopAPI()
+    session = {"token": os.environ.get("GOREEDOCS_TOKEN", "")}
+
+    def session_request(path, method="GET", payload=None):
+        # The GUI token is kept in process memory, never copied to disk.
+        return call(path, method, payload, token=session["token"])
+
+    api = DesktopAPI(session_request)
 
     class DocumentsWindow(Gtk.ApplicationWindow):
         def __init__(self, application):
@@ -84,6 +91,23 @@ def main(argv=None):
 
             layout = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
             self.set_child(layout)
+            self.auth_strip = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+            self.auth_strip.add_css_class("gc-auth")
+            token_label = Gtk.Label(label="_Owner API token", use_underline=True)
+            self.auth_strip.append(token_label)
+            self.auth_entry = Gtk.PasswordEntry()
+            self.auth_entry.set_hexpand(True)
+            self.auth_entry.set_placeholder_text("Paste authorized local document token")
+            self.auth_entry.set_tooltip_text(
+                "Credential is held only in this running client session, never saved."
+            )
+            token_label.set_mnemonic_widget(self.auth_entry)
+            self.auth_entry.connect("activate", self.connect_session)
+            self.auth_strip.append(self.auth_entry)
+            connect_button = Gtk.Button(label="Connect")
+            connect_button.connect("clicked", self.connect_session)
+            self.auth_strip.append(connect_button)
+            layout.append(self.auth_strip)
             split = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
             split.set_position(355)
             split.set_wide_handle(True)
@@ -160,6 +184,8 @@ def main(argv=None):
             # 12/18px radii; OS-native text and surfaces retain the system theme.
             css.load_from_data(b"""
                 .gc-heading { color: #5145d9; font-size: 18px; font-weight: 800; }
+                .gc-auth { padding: 14px 20px; }
+                .gc-auth entry { min-height: 44px; }
                 .gc-sidebar { padding: 18px; }
                 .gc-editor { padding: 24px; }
                 .gc-section { font-size: 17px; font-weight: 700; }
@@ -183,6 +209,29 @@ def main(argv=None):
             self.connect("close-request", self.prevent_data_loss)
             self.set_editor_enabled(False)
             self.present()
+            self.auth_strip.set_visible(not bool(session["token"]))
+            self.new_button.set_sensitive(bool(session["token"]))
+            self.refresh_button.set_sensitive(bool(session["token"]))
+            if session["token"]:
+                self.refresh(True)
+            else:
+                self.notice.set_text(
+                    "Enter your local owner token to connect. It will not be saved."
+                )
+                self.auth_entry.grab_focus()
+
+        def connect_session(self, *_):
+            if self.busy:
+                return
+            entered = self.auth_entry.get_text().strip()
+            if not entered:
+                self.notice.set_text("A local Documents API token is required")
+                return
+            session["token"] = entered
+            self.auth_entry.set_text("")
+            self.auth_strip.set_visible(False)
+            self.new_button.set_sensitive(True)
+            self.refresh_button.set_sensitive(True)
             self.refresh(True)
 
         def set_editor_enabled(self, enabled):
@@ -249,8 +298,8 @@ def main(argv=None):
 
         def finish(self):
             self.busy = False
-            self.new_button.set_sensitive(True)
-            self.refresh_button.set_sensitive(True)
+            self.new_button.set_sensitive(bool(session["token"]))
+            self.refresh_button.set_sensitive(bool(session["token"]))
             self.set_editor_enabled(self.current is not None)
             if self.refresh_pending:
                 self.refresh_pending = False
@@ -263,10 +312,22 @@ def main(argv=None):
 
         def failed(self, message):
             self.finish()
-            self.notice.set_text("Operation failed: " + message)
+            if "authorization required" in message.casefold() or "401" in message:
+                session["token"] = ""
+                self.auth_strip.set_visible(True)
+                self.new_button.set_sensitive(False)
+                self.refresh_button.set_sensitive(False)
+                self.notice.set_text("Authentication rejected. Enter an authorized owner token.")
+                self.auth_entry.grab_focus()
+            else:
+                self.notice.set_text("Operation failed: " + message)
             return False
 
         def refresh(self, reset=True):
+            if not session["token"]:
+                self.auth_strip.set_visible(True)
+                self.notice.set_text("Connect with your local owner token first")
+                return False
             if self.busy:
                 self.refresh_pending = True
                 return False
