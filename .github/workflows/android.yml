@@ -65,7 +65,14 @@ jobs:
         run: |
           test -e /dev/kvm
           sudo chmod 666 /dev/kvm
-          nohup emulator -avd goreedocs-ci -no-window -no-audio -no-boot-anim -no-snapshot-save -gpu swiftshader_indirect -accel on -memory 2048 > "$RUNNER_TEMP/goreedocs-emulator.log" 2>&1 &
+          test -x "$ANDROID_SDK_ROOT/emulator/emulator"
+          nohup "$ANDROID_SDK_ROOT/emulator/emulator" -avd goreedocs-ci -no-window -no-audio -no-boot-anim -no-snapshot-save -gpu swiftshader_indirect -accel on -memory 2048 > "$RUNNER_TEMP/goreedocs-emulator.log" 2>&1 &
+          emulator_pid=$!
+          sleep 5
+          if ! kill -0 "$emulator_pid" 2>/dev/null; then
+            tail -100 "$RUNNER_TEMP/goreedocs-emulator.log"
+            exit 1
+          fi
           timeout 300 adb wait-for-device
           timeout 300 bash -c 'until [ "$(adb shell getprop sys.boot_completed | tr -d "\r")" = "1" ]; do sleep 5; done'
           adb shell input keyevent 82
