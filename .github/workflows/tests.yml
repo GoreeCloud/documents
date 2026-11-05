@@ -107,8 +107,18 @@ jobs:
                               f"Missing keyboard shortcut for {name}: {accelerators}"
                           )
                   window.activate_action("search-documents", None)
-                  if not isinstance(window.get_focus(), Gtk.SearchEntry):
-                      raise AssertionError("Search shortcut did not focus search")
+                  # Gtk.SearchEntry contains a child Gtk.Text which may own focus.
+                  focus = window.get_focus()
+                  focus_path = []
+                  found_search = False
+                  while focus is not None:
+                      focus_path.append(type(focus).__name__)
+                      if isinstance(focus, Gtk.SearchEntry):
+                          found_search = True
+                          break
+                      focus = focus.get_parent()
+                  if not found_search:
+                      raise AssertionError("Search focus path: " + str(focus_path))
                   results.append("Native GTK4 window actions and search focus passed")
               except Exception as error:
                   results.append("Failed: " + str(error))
