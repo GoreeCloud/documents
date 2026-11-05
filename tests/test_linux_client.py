@@ -57,6 +57,11 @@ class NativeLinuxContractTest(unittest.TestCase):
         self.assertIn('self.listbox.set_activate_on_single_click(True)', source)
         self.assertIn('self.save_button.connect("clicked", self.save)', source)
         self.assertIn('self.connect("close-request", self.prevent_data_loss)', source)
+        self.assertIn("Gtk.PasswordEntry()", source)
+        self.assertIn('self.auth_entry.set_text("")', source)
+        self.assertIn("session_request", source)
+        self.assertIn('session["token"] = ""', source)
+        self.assertIn("self.auth_strip.set_visible(True)", source)
 
 
 if __name__ == "__main__":
