@@ -29,6 +29,21 @@ class DocumentCodecTest {
         assertEquals("message.md", DocumentCodec.suggestedFilename(imported))
     }
 
+    @Test fun canonicalPythonAndAndroidReferenceFixture() {
+        val stream = requireNotNull(
+            javaClass.classLoader?.getResourceAsStream("fixtures/reference-v1.gcdoc")
+        ) { "Shared portable document fixture is missing" }
+        val originalBytes = stream.use { DocumentCodec.readLimited(it) }
+        val imported = DocumentCodec.parse("reference-v1.gcdoc", originalBytes)
+        assertEquals("Reference Notes ✨", imported.title)
+        assertEquals("Team/Reference", imported.folder)
+        assertEquals("# Interoperability\n\nRésumé — 🔒\n\n- Markdown\n- UTF-8\n", imported.body)
+        assertEquals(DocumentFormat.GCDOC, imported.format)
+        val exported = DocumentCodec.encode(imported)
+        val reopened = DocumentCodec.parse("re-exported.gcdoc", exported)
+        assertEquals(imported, reopened)
+    }
+
     @Test fun malformedAndUnexpectedEnvelopeRejected() {
         val wrong = listOf(
             "{}",
