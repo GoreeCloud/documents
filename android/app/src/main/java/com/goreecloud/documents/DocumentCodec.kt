@@ -36,7 +36,7 @@ object DocumentCodec {
         return output.toByteArray()
     }
 
-    private fun decodeUtf8(bytes: ByteArray): String =
+    internal fun decodeUtf8(bytes: ByteArray): String =
         StandardCharsets.UTF_8.newDecoder()
             .onMalformedInput(CodingErrorAction.REPORT)
             .onUnmappableCharacter(CodingErrorAction.REPORT)
