@@ -4,6 +4,8 @@ import android.app.Activity
 import android.app.Instrumentation
 import android.content.Intent
 import android.net.Uri
+import android.content.ContentValues
+import android.provider.MediaStore
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.test.espresso.intent.Intents
 import androidx.test.espresso.intent.matcher.IntentMatchers.hasAction
@@ -187,6 +189,63 @@ class DocumentsActivityTest {
             rule.onNodeWithText("Keep editing").performClick()
         } finally {
             Intents.release()
+        }
+    }
+
+    @Test fun successfulExternalExportWritesValidGcdocWithoutSavingLocalEdits() {
+        awaitText("+ New")
+        val priorIds = DocumentShelf(rule.activity.filesDir).scan().documents
+            .map { it.id }.toSet()
+        rule.onNodeWithText("+ New").performClick()
+        awaitText("Created and saved in private device storage")
+
+        val original = DocumentShelf(rule.activity.filesDir).scan().documents
+            .single { it.id !in priorIds }
+        rule.onAllNodes(hasSetTextAction())[0]
+            .performTextReplacement("Safely exported draft")
+        rule.onAllNodes(hasSetTextAction())[2]
+            .performTextReplacement("# Exported independently\\n\\nPrivate Save still pending")
+        rule.onNodeWithText("Save").assertIsEnabled()
+
+        // A disposable MediaStore item exercises the real content-provider
+        // write path. Only this test-created entry is removed in finally.
+        val resolver = rule.activity.contentResolver
+        val name = "goreecloud-export-test-" + java.util.UUID.randomUUID() + ".gcdoc"
+        val metadata = ContentValues().apply {
+            put(MediaStore.MediaColumns.DISPLAY_NAME, name)
+            put(MediaStore.MediaColumns.MIME_TYPE, "application/octet-stream")
+        }
+        val destination = requireNotNull(
+            resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, metadata)
+        ) { "Could not create disposable emulator export destination" }
+
+        try {
+            Intents.init()
+            try {
+                Intents.intending(hasAction(Intent.ACTION_CREATE_DOCUMENT)).respondWith(
+                    Instrumentation.ActivityResult(
+                        Activity.RESULT_OK, Intent().setData(destination)
+                    )
+                )
+                rule.onNodeWithText("Export…").performClick()
+                awaitText("Exported file copy. Local changes remain unsaved until Save.")
+
+                val exported = requireNotNull(
+                    resolver.openInputStream(destination)
+                ).use { DocumentCodec.readLimited(it) }
+                val parsed = DocumentCodec.parse(name, exported)
+                assertEquals("Safely exported draft", parsed.title)
+                assertEquals("# Exported independently\\n\\nPrivate Save still pending", parsed.body)
+                rule.onNodeWithText("Save").assertIsEnabled()
+
+                val afterExport = DocumentShelf(rule.activity.filesDir).scan().documents
+                    .single { it.id == original.id }
+                assertEquals(original.document, afterExport.document)
+            } finally {
+                Intents.release()
+            }
+        } finally {
+            resolver.delete(destination, null, null)
         }
     }
 
