@@ -40,7 +40,7 @@ class DocumentFormatTest(unittest.TestCase):
         imported = self.db.import_file({"filename": reference.name, "content": content})
         self.assertEqual(imported["title"], "Reference Notes ✨")
         self.assertEqual(imported["folder"], "Team/Reference")
-        self.assertEqual(imported["body"], "# Interoperability\\n\\nRésumé — 🔒\\n\\n- Markdown\\n- UTF-8\\n")
+        self.assertEqual(imported["body"], "# Interoperability\n\nRésumé — 🔒\n\n- Markdown\n- UTF-8\n")
         exported = self.db.export(imported["id"])
         envelope = json.loads(exported["content"])
         original = json.loads(content)
