@@ -1,0 +1,21 @@
+# User documents, local database and secret material
+data/
+*.sqlite
+*.sqlite3
+*.sqlite3-*
+*.db
+*.db-*
+.env
+.env.*
+*.pem
+*.key
+*.p12
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+dist/
+build/
+*.egg-info/
+node_modules/
+.DS_Store

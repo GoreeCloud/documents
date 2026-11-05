@@ -1,0 +1,29 @@
+name: Documents validation
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Validate Python and API
+        run: |
+          python -m compileall -q goreedocs
+          python -m unittest discover -s tests -v
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Check browser scripts
+        run: |
+          node --check web/app.js
+          node --check web/share.js

@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>GoreeCloud Documents</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+<div class="ambient ambient-one"></div><div class="ambient ambient-two"></div>
+<div id="shell" class="shell" hidden>
+  <aside class="sidebar" aria-label="Document navigation">
+    <div class="brand"><div class="brand-mark" aria-hidden="true">✦</div><div><strong>GoreeCloud</strong><small>DOCUMENTS</small></div></div>
+    <div class="new-actions">
+      <button id="new" class="button primary full">＋ &nbsp; New document</button>
+      <button id="import" class="button ghost full">↑ &nbsp; Import file</button>
+      <input id="import-input" type="file" accept=".gcdoc,.md,text/markdown,application/json" hidden aria-label="Import Markdown or GoreeCloud document">
+    </div>
+    <label class="search-label" for="search">SEARCH DOCUMENTS</label>
+    <input id="search" type="search" placeholder="Find documents…" autocomplete="off">
+    <div class="sidebar-title">LIBRARY</div>
+    <nav id="primary-nav" aria-label="Library sections">
+      <button id="overview" class="nav active" aria-current="page"><span aria-hidden="true">◈</span> Overview</button>
+      <button id="all" class="nav"><span aria-hidden="true">▤</span> All documents <span id="count" class="nav-count">0</span></button>
+      <button id="favorites" class="nav"><span aria-hidden="true">☆</span> Favorites</button>
+      <button id="recent" class="nav"><span aria-hidden="true">◷</span> Recent</button>
+      <button id="trash" class="nav"><span aria-hidden="true">♻</span> Trash</button>
+    </nav>
+    <div class="sidebar-title">FOLDERS</div>
+    <nav id="folders-nav" aria-label="Document folders"><span class="list-empty">No folders yet</span></nav>
+    <div class="sidebar-title">FORMATS</div>
+    <nav id="formats-nav" aria-label="Document formats">
+      <button id="format-gcdoc" class="nav"><span aria-hidden="true">◇</span> GoreeCloud DOC</button>
+      <button id="format-md" class="nav"><span aria-hidden="true">#</span> Markdown</button>
+    </nav>
+    <div class="side-foot"><span class="dot"></span> Private development library <button id="logout" class="text-btn">Lock</button></div>
+  </aside>
+  <main class="workspace">
+    <header class="toolbar">
+      <div class="breadcrumb"><span>Documents</span> <span class="chev">/</span> <span id="crumb">Overview</span></div>
+      <div class="toolbar-actions">
+        <span id="status" role="status" aria-live="polite">Ready</span>
+        <button id="back" class="button ghost" hidden>← Library</button>
+        <button id="favorite-toggle" class="button ghost" disabled hidden>☆</button>
+        <button id="history" class="button ghost" disabled hidden>History</button>
+        <button id="share" class="button ghost" disabled hidden>Share</button>
+        <button id="export" class="button ghost" disabled hidden>↓ Download</button>
+        <button id="remove" class="button ghost destructive" disabled hidden>Trash</button>
+      </div>
+    </header>
+    <section id="library" class="library" aria-label="Document library">
+      <div id="home-header" class="home-header">
+        <div><span class="eyebrow">YOUR DOCUMENT WORKSPACE</span><h1>Thoughtfully organized.<br><em>Beautifully yours.</em></h1>
+          <p>Everything you create, in one calm place. Write privately or collaborate through authorized tools.</p></div>
+        <div class="hero-mark" aria-hidden="true"><span>✦</span><span class="hero-sheet">▤</span></div>
+      </div>
+      <div id="widgets" class="widgets" aria-label="Document insights">
+        <button class="stat-card" data-category="all"><span class="stat-symbol">▤</span><strong id="stat-total">0</strong><span>All documents</span></button>
+        <button class="stat-card" data-category="favorites"><span class="stat-symbol">☆</span><strong id="stat-favorites">0</strong><span>Favorites</span></button>
+        <button class="stat-card" data-category="recent"><span class="stat-symbol">◷</span><strong id="stat-recent">0</strong><span>Updated this week</span></button>
+        <button class="stat-card" data-category="trash"><span class="stat-symbol">♻</span><strong id="stat-trash">0</strong><span>In trash</span></button>
+      </div>
+      <div id="shortcuts" class="shortcuts">
+        <span class="eyebrow">QUICK ACTIONS</span>
+        <button id="quick-create" class="shortcut-button"><span>＋</span> Blank document</button>
+        <button id="quick-import" class="shortcut-button"><span>↑</span> Import document</button>
+        <button id="quick-policies" class="shortcut-button"><span>⌑</span> Browse policies</button>
+      </div>
+      <div class="library-head">
+        <div><span class="eyebrow">THE LIBRARY</span><h2 id="section-title">Your documents</h2>
+          <p id="results-count">Your documents will appear here.</p></div>
+        <div class="view-actions" role="group" aria-label="Library view and sorting">
+          <label for="sort">Sort by</label><select id="sort" aria-label="Sort documents">
+            <option value="updated">Last edited</option><option value="created">Date created</option><option value="title">Title</option>
+          </select>
+          <button id="direction" class="button ghost" aria-label="Reverse sort order" title="Reverse sort order">↓</button>
+          <div class="toggle"><button id="view-grid" class="selected" aria-pressed="true" title="Grid view" aria-label="Grid view">▦</button>
+            <button id="view-list" aria-pressed="false" title="List view" aria-label="List view">☷</button></div>
+        </div>
+      </div>
+      <div id="cards" class="cards grid-view" aria-label="Document thumbnails"></div>
+      <div id="empty-results" class="empty-results" hidden><div aria-hidden="true">◈</div><h3>No documents found</h3>
+        <p>Try a different search or create a new document.</p><button id="empty-new" class="button primary">New document</button></div>
+      <div class="load-row"><button id="load-more" class="button ghost" hidden>Load more documents ↓</button></div>
+    </section>
+    <section id="editor" class="editor" hidden aria-label="Document editor">
+      <div class="editor-inner">
+        <div class="document-meta"><span class="eyebrow">YOUR DOCUMENT</span><span id="format-badge" class="format-badge">GC DOC</span><span id="version-badge" class="version-badge">Version 1</span></div>
+        <input id="title" class="document-title" aria-label="Document title" maxlength="160" placeholder="Untitled document">
+        <div class="folder-row"><span>⌑ &nbsp; Folder</span><input id="folder" aria-label="Folder path" placeholder="Unfiled"></div>
+        <div class="editor-top"><div class="toggle" role="group" aria-label="View mode">
+          <button id="mode-edit" class="selected" aria-pressed="true">Edit</button>
+          <button id="mode-split" aria-pressed="false">Split</button>
+          <button id="mode-preview" aria-pressed="false">Read</button></div><span class="quiet-hint">Markdown content · Autosaved</span></div>
+        <div id="panes" class="panes edit-only"><textarea id="body" aria-label="Document content" spellcheck="true" placeholder="Start writing something wonderful…"></textarea>
+        <article id="preview" class="preview" aria-label="Document preview"></article></div>
+      </div>
+    </section>
+  </main>
+</div>
+<div id="login" class="login-backdrop"><form id="login-form" class="login-panel">
+  <div class="brand-mark large">✦</div><span class="eyebrow">PRIVATE WORKSPACE</span>
+  <h1>Welcome to<br>GoreeCloud Documents.</h1>
+  <p>Enter your local document API token to unlock this workspace. The token stays in this browser tab's memory.</p>
+  <label for="token">API token</label><input id="token" type="password" autocomplete="off" required placeholder="Your secret token">
+  <button class="button primary full" type="submit">Unlock documents →</button><div id="login-error" role="alert"></div>
+</form></div>
+<dialog id="versions-dialog"><div class="dialog-head"><h2>Revision history</h2><button class="icon-button" aria-label="Close history" data-close>✕</button></div>
+<p>Inspect and restore a previous revision without losing the current version.</p><div id="versions"></div></dialog>
+<dialog id="share-dialog"><div class="dialog-head"><h2>Share document</h2><button class="icon-button" aria-label="Close share" data-close>✕</button></div>
+<p>Anyone with this link can read the current document until it expires. Review sensitive contents before sharing.</p>
+<label for="expiry">Link expiration</label><select id="expiry"><option value="1">1 hour</option><option value="24" selected>24 hours</option><option value="168">7 days</option></select>
+<button id="create-link" class="button primary full">Create read-only link</button><input id="share-url" readonly aria-label="Share URL" hidden>
+<button id="copy-link" class="button ghost full" hidden>Copy link</button></dialog>
+</body>
+</html>
