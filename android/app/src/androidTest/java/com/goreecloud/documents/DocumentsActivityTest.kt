@@ -1,5 +1,11 @@
 package com.goreecloud.documents
 
+import android.app.Activity
+import android.app.Instrumentation
+import android.content.Intent
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.test.espresso.intent.Intents
+import androidx.test.espresso.intent.matcher.IntentMatchers.hasAction
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.onAllNodesWithText
@@ -83,6 +89,35 @@ class DocumentsActivityTest {
         val afterRecreation = DocumentShelf(rule.activity.filesDir).scan().documents
             .single { it.id == original.id }
         assertEquals(original.document, afterRecreation.document)
+    }
+
+    @Test fun cancellingExternalExportKeepsLocalEditsUnsaved() {
+        awaitText("+ New")
+        rule.onNodeWithText("+ New").performClick()
+        awaitText("Created and saved in private device storage")
+
+        val original = DocumentShelf(rule.activity.filesDir).scan().documents
+            .first { it.document.title == "Untitled document" }
+        rule.onAllNodes(hasSetTextAction())[0]
+            .performTextReplacement("Draft not exported")
+        rule.onNodeWithText("Save").assertIsEnabled()
+
+        Intents.init()
+        try {
+            Intents.intending(hasAction(Intent.ACTION_CREATE_DOCUMENT)).respondWith(
+                Instrumentation.ActivityResult(Activity.RESULT_CANCELED, null)
+            )
+            rule.onNodeWithText("Export…").performClick()
+            rule.waitForIdle()
+
+            // Cancelling an external picker must not clear unsaved local edits.
+            rule.onNodeWithText("Save").assertIsEnabled()
+            val onDisk = DocumentShelf(rule.activity.filesDir).scan().documents
+                .single { it.id == original.id }
+            assertEquals(original.document, onDisk.document)
+        } finally {
+            Intents.release()
+        }
     }
 
 }
