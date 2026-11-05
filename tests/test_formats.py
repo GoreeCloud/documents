@@ -70,6 +70,42 @@ class DocumentFormatTest(unittest.TestCase):
         self.assertEqual(self.db.overview()["total"],115)
         self.assertEqual(self.db.overview()["favorites"],1)
 
+    def test_folder_filter_treats_wildcards_as_literal_path_characters(self):
+        cases = [
+            ("Finance%", "percent root", "Finance%"),
+            ("Finance%/2026", "percent descendant", "Finance%"),
+            ("FinanceQ", "regular root", "FinanceQ"),
+            ("FinanceQ/2026", "regular descendant", "FinanceQ"),
+            ("Team_2026", "underscore root", "Team_2026"),
+            ("Team_2026/Notes", "underscore descendant", "Team_2026"),
+            ("TeamX2026", "similar root", "TeamX2026"),
+            ("TeamX2026/Notes", "similar descendant", "TeamX2026"),
+            ("Policies", "policy root", "Policies"),
+            ("Policies/Legal", "policy descendant", "Policies"),
+            ("PoliciesArchive", "different prefix", "PoliciesArchive"),
+        ]
+        for folder, title, _ in cases:
+            self.db.create({"title": title, "body": "test", "folder": folder})
+
+        expected = {
+            "Finance%": {"percent root", "percent descendant"},
+            "FinanceQ": {"regular root", "regular descendant"},
+            "Team_2026": {"underscore root", "underscore descendant"},
+            "TeamX2026": {"similar root", "similar descendant"},
+            "Policies": {"policy root", "policy descendant"},
+            "PoliciesArchive": {"different prefix"},
+        }
+        for folder, titles in expected.items():
+            with self.subTest(folder=folder):
+                found = self.db.search(folder=folder, limit=50)
+                self.assertEqual(found["total"], len(titles))
+                self.assertEqual({doc["title"] for doc in found["documents"]}, titles)
+                self.assertFalse(found["has_more"])
+
+        self.assertEqual(self.db.search(folder="Finance%/2026")["total"], 1)
+        self.assertEqual(self.db.search(folder="Team_2026/Notes")["total"], 1)
+        self.assertEqual(self.db.search(folder="missing%")["total"], 0)
+
     def test_migration_preserves_existing_ids_and_content(self):
         with TemporaryDirectory() as temp:
             database = Path(temp) / "legacy.sqlite"
