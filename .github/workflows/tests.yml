@@ -131,7 +131,7 @@ jobs:
       - name: Install native GTK4 runtime and virtual display on disposable runner
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq python3-gi gir1.2-gtk-4.0 xvfb
+          sudo apt-get install -y -qq python3-gi gir1.2-gtk-4.0 xvfb xdotool
       - name: Build and inspect offline Debian package
         run: |
           python3 packaging/linux/build_deb.py
@@ -169,7 +169,15 @@ jobs:
                   if process.poll() is not None:
                       out, err = process.communicate()
                       raise SystemExit("Packaged GTK4 process exited during startup:\\n" + err)
-                  print("GTK4 package started with environment token:", with_token)
+                  window = subprocess.run(
+                      ["xdotool", "search", "--name", "GoreeCloud Documents"],
+                      capture_output=True, text=True, check=False,
+                  )
+                  if window.returncode != 0 or not window.stdout.strip():
+                      raise SystemExit(
+                          "Installed GTK4 client did not create a named window"
+                      )
+                  print("Installed GTK4 window visible, environment token:", with_token)
               finally:
                   process.terminate()
                   try:
