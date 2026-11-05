@@ -9,6 +9,8 @@ import org.junit.runner.RunWith
 import org.junit.rules.TemporaryFolder
 import org.robolectric.RobolectricTestRunner
 import java.io.File
+import java.nio.file.Files
+import org.json.JSONObject
 
 /** Reproducible app-private storage tests using an isolated filesystem. */
 @RunWith(RobolectricTestRunner::class)
@@ -92,4 +94,32 @@ class DocumentShelfTest {
         }
         assertEquals("unchanged", shelf.scan().documents.single().document.body)
     }
+    @Test fun mismatchedStoredIdentityIsNotLoadedOrSilentlyRewritten() {
+        val shelf = DocumentShelf(temporary.root)
+        val original = shelf.create(PortableDocument("Safe", "unchanged"))
+        val record = File(temporary.root, "documents/${original.id}.json")
+        val foreign = "00000000-0000-0000-0000-000000000010"
+        val replaced = JSONObject(record.readText(Charsets.UTF_8))
+            .put("id", foreign).toString()
+        record.writeText(replaced, Charsets.UTF_8)
+
+        val scan = DocumentShelf(temporary.root).scan()
+        assertEquals(1, scan.invalidFiles)
+        assertTrue(scan.documents.isEmpty())
+        assertEquals(replaced, record.readText(Charsets.UTF_8))
+    }
+
+    @Test fun symlinkedDocumentDirectoryDoesNotWriteOutsideAppSandbox() {
+        val app = temporary.newFolder("app")
+        val outside = temporary.newFolder("outside")
+        val shortcut = File(app, "documents")
+        Files.createSymbolicLink(shortcut.toPath(), outside.toPath())
+
+        assertThrows(IllegalArgumentException::class.java) {
+            DocumentShelf(app).create(PortableDocument("Private", "secret"))
+        }
+        assertTrue(outside.listFiles().isNullOrEmpty())
+        assertTrue(Files.isSymbolicLink(shortcut.toPath()))
+    }
+
 }
