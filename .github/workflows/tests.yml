@@ -73,15 +73,18 @@ jobs:
           GOREEDOCS_TOKEN: ""
         run: |
           xvfb-run -a /usr/bin/python3 - <<'PY'
+          import gi
+          gi.require_version("Gtk", "4.0")
           from gi.repository import Gio, GLib, Gtk
           from goreedocs import linux
 
           results = []
+          # GTK canonicalizes Primary to Control under Linux/X11.
           expected = {
-              "new-document": "<Primary>n",
-              "save-document": "<Primary>s",
-              "search-documents": "<Primary>f",
-              "focus-editor": "<Primary>e",
+              "new-document": "<Control>n",
+              "save-document": "<Control>s",
+              "search-documents": "<Control>f",
+              "focus-editor": "<Control>e",
               "refresh-library": "F5",
           }
 
