@@ -42,6 +42,7 @@ def main(argv=None):
     try:
         import gi
         gi.require_version("Gtk", "4.0")
+        gi.require_version("Gdk", "4.0")
         from gi.repository import Gdk, Gio, GLib, Gtk, Pango
     except (ImportError, ValueError) as exc:
         print("GTK4 and its Python GObject bindings are required: " + str(exc),
