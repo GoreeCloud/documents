@@ -48,6 +48,35 @@ class DocumentsTest(unittest.TestCase):
         self.assertEqual(self.req("/api/documents", "POST", {"title":"a","body":"","folder":"../secret"})[0], 400)
         self.assertEqual(self.req("/api/documents", "POST", {"title":"a","body":"x"*(1024*1024+1)})[0], 413)
 
+    def test_rest_folder_search_uses_literal_names_and_descendants(self):
+        names = [
+            ("Finance%", "literal"),
+            ("Finance%/2026", "child"),
+            ("FinanceX", "unrelated"),
+            ("Team_2026", "underscore"),
+            ("Team_2026/Private", "nested"),
+            ("TeamX2026", "not an underscore"),
+        ]
+        for folder, title in names:
+            status, created = self.req(
+                "/api/documents", "POST", {"title": title, "body": "text", "folder": folder}
+            )
+            self.assertEqual(status, 201, created)
+
+        for encoded, expected in (
+            ("Finance%25", {"literal", "child"}),
+            ("Team_2026", {"underscore", "nested"}),
+            ("FinanceX", {"unrelated"}),
+            ("TeamX2026", {"not an underscore"}),
+        ):
+            with self.subTest(folder=encoded):
+                code, result = self.req("/api/documents?folder=" + encoded)
+                self.assertEqual(code, 200)
+                self.assertEqual(result["total"], len(expected))
+                self.assertEqual(
+                    {doc["title"] for doc in result["documents"]}, expected
+                )
+
     def test_version_history_conflict_and_restore_revision(self):
         d=self.req("/api/documents","POST",{"title":"First","body":"a"})[1]
         path="/api/documents/"+d["id"]
