@@ -181,8 +181,10 @@ class Store:
             clauses.append("(instr(lower(title), lower(?))>0 OR instr(lower(body), lower(?))>0 OR instr(lower(folder), lower(?))>0)")
             params += [query,query,query]
         if folder:
-            clauses.append("(folder=? OR folder LIKE ?)")
-            params += [folder,folder+"/%"]
+            # SQLite LIKE treats % and _ in a folder name as wildcards.
+            # A literal path prefix followed by "/" preserves hierarchy exactly.
+            clauses.append("(folder=? OR instr(folder, ?) = 1)")
+            params += [folder, folder+"/"]
         if fmt:
             clauses.append("format=?")
             params.append(fmt)

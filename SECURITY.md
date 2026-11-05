@@ -4,6 +4,8 @@
 
 The server requires a high-entropy token for all private document operations and refuses non-loopback binds. Generate secrets outside the repository and keep them out of logs, terminals shared with others and source control.
 
+The CLI and experimental stdio MCP adapter share one REST transport. It accepts loopback HTTP or explicitly configured HTTPS endpoints, validates the complete URL authority, rejects embedded URL credentials and ambiguous URL suffixes, and **does not follow HTTP redirects or honor environment HTTP(S) proxies**. This prevents unintentional forwarding of document bearer tokens when an endpoint is misconfigured or a server responds with a redirect. Remote HTTPS still requires a separately authorized, correctly authenticated gateway; this client transport is not an identity system or network exposure authorization.
+
 Read-only share URLs carry bearer-equivalent random tokens. Their token hashes are stored in SQLite; link expiry and explicit revocation are checked server-side. Trash permanently revokes active share links even if a document is later restored. Anyone with an active link can see the current shared body until expiration/revocation.
 
 The browser constructs preview DOM elements as text, not untrusted HTML, and has a restrictive Content Security Policy. No third-party scripts, image trackers or remote fonts are used. The UI only saves its grid/list preference in browser storage, not its API token.
