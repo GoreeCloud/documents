@@ -5,7 +5,7 @@ import sqlite3
 from tempfile import TemporaryDirectory
 import unittest
 
-from goreedocs.server import Problem, Store, ROOT
+from goreedocs.server import MAX_JSON, Problem, Store, ROOT
 
 
 class DocumentFormatTest(unittest.TestCase):
@@ -46,6 +46,29 @@ class DocumentFormatTest(unittest.TestCase):
         original = json.loads(content)
         self.assertEqual(envelope, original)
 
+    def test_native_export_respects_its_own_import_size_limit(self):
+        # Markdown can fit within MAX_BODY while JSON escaping doubles its size.
+        escaped_body = "\\" * 600_000
+        original = self.db.create({"title": "Large escaped text", "body": escaped_body,
+                                   "format": "gcdoc"})
+        with self.assertRaises(Problem) as error:
+            self.db.export(original["id"], "gcdoc")
+        self.assertEqual(error.exception.status, 413)
+        self.assertIn("export Markdown", error.exception.message)
+
+        markdown = self.db.export(original["id"], "md")
+        self.assertEqual(markdown["content"], escaped_body)
+        self.assertEqual(self.db.get(original["id"])["body"], escaped_body)
+
+        small_body = 'A \\"quoted\\" path \\\\ notes\\n' * 30
+        small = self.db.create({"title": "Small escaped text", "body": small_body,
+                                "format": "gcdoc"})
+        native = self.db.export(small["id"], "gcdoc")
+        self.assertLessEqual(len(native["content"].encode("utf-8")), MAX_JSON)
+        imported = self.db.import_file({"filename": native["filename"],
+                                        "content": native["content"]})
+        self.assertEqual(imported["body"], small_body)
+
     def test_bad_native_files_rejected(self):
         for name, content in [
             ("evil.gcdoc", "{}"),
@@ -82,6 +105,42 @@ class DocumentFormatTest(unittest.TestCase):
         self.assertEqual(self.db.overview()["total"],115)
         self.assertEqual(self.db.overview()["favorites"],1)
 
+    def test_folder_filter_treats_wildcards_as_literal_path_characters(self):
+        cases = [
+            ("Finance%", "percent root", "Finance%"),
+            ("Finance%/2026", "percent descendant", "Finance%"),
+            ("FinanceQ", "regular root", "FinanceQ"),
+            ("FinanceQ/2026", "regular descendant", "FinanceQ"),
+            ("Team_2026", "underscore root", "Team_2026"),
+            ("Team_2026/Notes", "underscore descendant", "Team_2026"),
+            ("TeamX2026", "similar root", "TeamX2026"),
+            ("TeamX2026/Notes", "similar descendant", "TeamX2026"),
+            ("Policies", "policy root", "Policies"),
+            ("Policies/Legal", "policy descendant", "Policies"),
+            ("PoliciesArchive", "different prefix", "PoliciesArchive"),
+        ]
+        for folder, title, _ in cases:
+            self.db.create({"title": title, "body": "test", "folder": folder})
+
+        expected = {
+            "Finance%": {"percent root", "percent descendant"},
+            "FinanceQ": {"regular root", "regular descendant"},
+            "Team_2026": {"underscore root", "underscore descendant"},
+            "TeamX2026": {"similar root", "similar descendant"},
+            "Policies": {"policy root", "policy descendant"},
+            "PoliciesArchive": {"different prefix"},
+        }
+        for folder, titles in expected.items():
+            with self.subTest(folder=folder):
+                found = self.db.search(folder=folder, limit=50)
+                self.assertEqual(found["total"], len(titles))
+                self.assertEqual({doc["title"] for doc in found["documents"]}, titles)
+                self.assertFalse(found["has_more"])
+
+        self.assertEqual(self.db.search(folder="Finance%/2026")["total"], 1)
+        self.assertEqual(self.db.search(folder="Team_2026/Notes")["total"], 1)
+        self.assertEqual(self.db.search(folder="missing%")["total"], 0)
+
     def test_migration_preserves_existing_ids_and_content(self):
         with TemporaryDirectory() as temp:
             database = Path(temp) / "legacy.sqlite"
@@ -110,6 +169,18 @@ class DocumentFormatTest(unittest.TestCase):
             db.chmod(0o644)
             with self.assertRaises(Problem):
                 Store(db)
+
+    def test_browser_native_export_requires_consent_for_markdown_fallback(self):
+        script = (ROOT / "web/app.js").read_text()
+        self.assertIn('const documentId = current.id, documentFormat = current.format;', script)
+        self.assertIn('if (e.status !== 413 || documentFormat !== "gcdoc") throw e;', script)
+        self.assertIn('current.id !== documentId || dirty || saving', script)
+        self.assertIn('Document changed while preparing download; try again', script)
+        self.assertIn('const approved = confirm(', script)
+        self.assertIn('folder metadata is not included', script)
+        self.assertIn('if (!approved) { status("Download canceled; document unchanged"); return; }', script)
+        self.assertIn('"/export?format=md"', script)
+        self.assertIn('if (!current || dirty || saving)', script)
 
     def test_format_badges_and_browse_controls_in_browser_source(self):
         html = (ROOT / "web/index.html").read_text()

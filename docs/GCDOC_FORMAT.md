@@ -26,6 +26,8 @@ Example valid content, as a JSON file:
 
 This format is designed to be plain-text, diffable, easy to edit through APIs, and stable to parse. It is not a zipped or encrypted container. Text is Markdown; it is not a lossless rich-text layout engine and currently has no embedded media or attachment entries.
 
+Import and export enforce the same maximum serialized native GCDOC package size on the Python service (the Markdown body limit of 1 MiB plus 4 KiB for package overhead). JSON escaping may make an otherwise valid Markdown body too large for a `.gcdoc` package; the service rejects that native export with HTTP 413 and suggests exporting the original Markdown (`.md`) instead. The document remains stored and unchanged. In the browser editor, an oversized native export offers a consent-based `.md` download instead; Markdown preserves text but not the native logical-folder metadata, and choosing the fallback does not change the saved document. The native Android codec's matching boundary is a separate, outstanding acceptance item; do not assume Android parity until its change and tests are verified.
+
 Import validates schema identity/version, Unicode text, title and folder bounds. The imported document gets a NEW ID, a new v1 revision and an independent lifecycle. The portable envelope intentionally excludes API credentials, link capabilities, internal revision IDs and database metadata. Import of future schema versions is rejected until a reviewed migration exists.
 
 Plain .md files may be imported, edited and exported without wrapper metadata. The library displays format as **GC DOC** or **MD** on the upper-right corner of thumbnails before opening the file.
