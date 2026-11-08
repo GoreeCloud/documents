@@ -1,6 +1,6 @@
 # GoreeCloud Documents — Android offline editor preview
 
-**Status:** Source-only development branch. No verified APK has been delivered. Android runtime, permissions, visual quality, installation, upgrades and accessibility are not yet accepted.
+**Status:** Native Android offline editor development-preview source is integrated into `main`. Android 35 emulator and debug/JVM CI have passed, including a host-driven force-stop test. No standalone APK has been delivered or installed on an owner's device; physical-device, signing, distribution and Stable acceptance remain open.
 
 ## Purpose and boundaries
 
@@ -86,6 +86,28 @@ gradle -p android :app:testDebugUnitTest :app:assembleDebug --no-daemon
 ```
 
 The repository's Android CI workflow performs the same checks. **A green compile is not equivalent to device testing or APK delivery.**
+
+## Android APK integrity and signature preflight
+
+Before any APK is considered for installation, I require a verified
+package identity, content integrity and an appropriate signing and
+custody plan. The development CI now contains a **fail-closed debug APK
+preflight** using the reviewed GoreeCloud Android Toolkit source
+pinned to `70655c1c210984bc72a4a93436eaf8a6e3c59d8b`.
+
+The checks audit public tracked files for sensitive artifacts, verify
+bounded APK ZIP structure and SHA-256, invoke Android SDK
+`apksigner verify`, and confirm the compiled application package is
+`com.goreecloud.documents` via `aapt dump badging`. The Toolkit
+inspector distinguishes ZIP integrity from signature, identity and
+device verification. This additional CI step is **development source
+only** until its exact-head hosted run passes.
+
+A valid **debug** signature is not a trusted release signature.
+CI does not export, upload, install on an owner's device, or deliver the
+APK. Release signing-key custody, official hash/provenance, standalone
+APK storage in GoreeCloud/Artifacts, installation and upgrade/rollback
+remain separate acceptance gates.
 
 ## Android delivery and release gate
 

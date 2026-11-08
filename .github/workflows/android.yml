@@ -35,10 +35,29 @@ jobs:
           gradle-version: "8.10.2"
       - name: Verify Android codec and compile debug app
         run: gradle -p android :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest --no-daemon
-      - name: Report package without distributing an APK
+      - name: Fetch reviewed GoreeCloud APK integrity tooling at pinned source
+        uses: actions/checkout@v4
+        with:
+          repository: GoreeCloud/android-toolkit
+          ref: 70655c1c210984bc72a4a93436eaf8a6e3c59d8b
+          path: gc-toolkit
+          persist-credentials: false
+      - name: Inspect tracked source, APK archive, debug signature and package ID
         run: |
-          test -s android/app/build/outputs/apk/debug/app-debug.apk
-          echo "Android compile and unit tests passed; APK is not a delivered artifact."
+          set -euo pipefail
+          apk=android/app/build/outputs/apk/debug/app-debug.apk
+          test -s "$apk"
+          test "$(git -C gc-toolkit rev-parse HEAD)" = '70655c1c210984bc72a4a93436eaf8a6e3c59d8b'
+          python3 gc-toolkit/tools/audit_tracked.py --root "$GITHUB_WORKSPACE"
+          python3 gc-toolkit/tools/apk_inspect.py "$apk"
+          signer="$ANDROID_SDK_ROOT/build-tools/35.0.0/apksigner"
+          aapt="$ANDROID_SDK_ROOT/build-tools/35.0.0/aapt"
+          test -x "$signer"
+          test -x "$aapt"
+          "$signer" verify --verbose "$apk"
+          "$aapt" dump badging "$apk" | grep -F "package: name='com.goreecloud.documents'"
+          sha256sum "$apk"
+          echo "Debug APK inspected, not a release-signed or delivered artifact."
 
   android-emulator:
     runs-on: ubuntu-24.04
