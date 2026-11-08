@@ -1,6 +1,7 @@
 package com.goreecloud.documents
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -142,6 +143,53 @@ class DocumentShelfTest {
         assertEquals(1, reopened.documents.size)
         assertEquals(original, reopened.documents.single())
         assertArrayEquals(committed, record.readBytes())
+    }
+
+    @Test fun legacyBackupWithoutBaseIsDiscoveredAndRecovered() {
+        val shelf = DocumentShelf(temporary.root)
+        val saved = shelf.create(PortableDocument("Last committed", "# Recover me"))
+        val record = File(temporary.root, "documents/${saved.id}.json")
+        val originalBytes = record.readBytes()
+        val backup = File(record.path + ".bak")
+        Files.move(record.toPath(), backup.toPath())
+        assertFalse(record.exists())
+
+        val reopened = DocumentShelf(temporary.root).scan()
+        assertEquals(0, reopened.invalidFiles)
+        assertEquals(listOf(saved), reopened.documents)
+        assertArrayEquals(originalBytes, record.readBytes())
+        assertFalse(backup.exists())
+    }
+
+    @Test fun malformedLegacyBackupIsReportedWithoutLosingBytes() {
+        val shelf = DocumentShelf(temporary.root)
+        val folder = File(temporary.root, "documents")
+        assertTrue(folder.isDirectory || folder.mkdirs())
+        val record = File(folder, "00000000-0000-0000-0000-000000000012.json")
+        val backup = File(record.path + ".bak")
+        val originalBytes = "{truncated".toByteArray(Charsets.UTF_8)
+        backup.writeBytes(originalBytes)
+
+        val result = shelf.scan()
+        assertEquals(1, result.invalidFiles)
+        assertTrue(result.documents.isEmpty())
+        val preserved = if (record.exists()) record else backup
+        assertArrayEquals(originalBytes, preserved.readBytes())
+    }
+
+    @Test fun symlinkedLegacyBackupIsRejectedWithoutReadingOutsideSandbox() {
+        val outside = temporary.newFile("outside-synthetic.txt")
+        outside.writeText("Do not import", Charsets.UTF_8)
+        val folder = File(temporary.root, "documents")
+        assertTrue(folder.isDirectory || folder.mkdirs())
+        val backup = File(folder, "00000000-0000-0000-0000-000000000013.json.bak")
+        Files.createSymbolicLink(backup.toPath(), outside.toPath())
+
+        val result = DocumentShelf(temporary.root).scan()
+        assertEquals(1, result.invalidFiles)
+        assertTrue(result.documents.isEmpty())
+        assertTrue(Files.isSymbolicLink(backup.toPath()))
+        assertEquals("Do not import", outside.readText(Charsets.UTF_8))
     }
 
     @Test fun explicitAtomicWriteRollbackPreservesOriginalPrivateRecord() {
