@@ -17,7 +17,7 @@ The Android preview deliberately requests **no INTERNET or broad storage permiss
 - A strict, bounded `.gcdoc` v1 JSON decoder and encoder with schema, UTF-8, document-size, and folder validation aligned to the backend format.
 - Native light/dark color schemes using GC UI's verified Iris palette role references.
 
-**Caution:** The private library now stores document records locally, but the **running Android UI has not yet passed process-death/recreation testing on a real device or emulator**. A new blank document is persisted when created; later edits are durable only after an explicit successful **Save**. Unsaved edits can be lost on forced termination. App-private files are normally removed on uninstall, and Android backup is disabled. A SAF Export is an independent copy that may fail or be cancelled; verify it externally. The preview does not provide encrypted off-device backup, atomic writes to third-party document providers, or cloud sync.
+**Caution:** The private library now stores document records locally, and Android 35 hosted emulator instrumentation has verified Activity recreation and reopening a saved record; **true process death, force-stop, reboot, and physical-device recovery are not yet accepted**. A new blank document is persisted when created; later edits are durable only after an explicit successful **Save**. Unsaved edits can be lost on forced termination. App-private files are normally removed on uninstall, and Android backup is disabled. A SAF Export is an independent copy that may fail or be cancelled; verify it externally. The preview does not provide encrypted off-device backup, atomic writes to third-party document providers, or cloud sync.
 
 ## App-private storage component — connected in source, awaiting device acceptance
 
@@ -38,6 +38,10 @@ UTF-8 and preservation of the original bytes.
 The strict decoder is now invoked by the Android UI's saved-document loading
 path through `DocumentShelf.scan()`. A green unit test still does not establish
 full app lifecycle durability or recovery behavior on a physical device.
+
+## Legacy backup discovery (source preview)
+
+The app-private shelf now discovers a valid legacy `.json.bak` sidecar even when its base `.json` file is missing. The matching `android.util.AtomicFile.openRead()` performs recovery using Android's platform behavior rather than treating the backup as an unrelated document. Discovery deduplicates base/backup entries and rejects symbolic links before reading them. Focused Robolectric fixtures cover orphaned committed data, malformed backup preservation, and symlink rejection. This is a source-level regression improvement; exact-head CI and true device process-death/storage-failure acceptance are tracked separately. The shelf does not provide cloud or off-device backup.
 
 ## Shared native-format interoperability fixture
 
