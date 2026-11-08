@@ -1,5 +1,6 @@
 """Integration and regression checks for document storage, REST, and AI bridge."""
 import json
+from http.client import HTTPConnection
 import os
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -72,9 +73,20 @@ class DocumentsTest(unittest.TestCase):
         status, _ = self.req("/api/documents/import", "POST",
                              {"filename": "oversized.md", "content": "x" * (MAX_JSON + 1)})
         self.assertEqual(status, 413)
-        status, _ = self.req("/api/documents", "POST",
-                             {"title": "Oversized request", "body": chr(92) * 600_000})
-        self.assertEqual(status, 413)
+        # Send only the oversized length header. A server may close the
+        # connection before a client finishes streaming a rejected large body.
+        connection = HTTPConnection("127.0.0.1", self.srv.server_address[1], timeout=5)
+        try:
+            connection.putrequest("POST", "/api/documents")
+            connection.putheader("Authorization", "Bearer " + self.secret)
+            connection.putheader("Content-Type", "application/json")
+            connection.putheader("Content-Length", str(MAX_JSON + 1))
+            connection.endheaders()
+            response = connection.getresponse()
+            self.assertEqual(response.status, 413)
+            response.read()
+        finally:
+            connection.close()
 
     def test_rest_folder_search_uses_literal_names_and_descendants(self):
         names = [
