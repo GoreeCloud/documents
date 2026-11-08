@@ -17,13 +17,13 @@ The Android preview deliberately requests **no INTERNET or broad storage permiss
 - A strict, bounded `.gcdoc` v1 JSON decoder and encoder with schema, UTF-8, document-size, and folder validation aligned to the backend format.
 - Native light/dark color schemes using GC UI's verified Iris palette role references.
 
-**Caution:** The private library now stores document records locally, and Android 35 hosted emulator instrumentation has verified Activity recreation and reopening a saved record; **true process death, force-stop, reboot, and physical-device recovery are not yet accepted**. A new blank document is persisted when created; later edits are durable only after an explicit successful **Save**. Unsaved edits can be lost on forced termination. App-private files are normally removed on uninstall, and Android backup is disabled. A SAF Export is an independent copy that may fail or be cancelled; verify it externally. The preview does not provide encrypted off-device backup, atomic writes to third-party document providers, or cloud sync.
+**Caution:** The private library now stores document records locally, and Android 35 hosted emulator instrumentation has verified Activity recreation and reopening a saved record; **a host-driven force-stop and relaunch passed on a disposable Android 35 emulator; physical-device process death, reboot, low-storage and provider-failure recovery are not yet accepted**. A new blank document is persisted when created; later edits are durable only after an explicit successful **Save**. Unsaved edits can be lost on forced termination. App-private files are normally removed on uninstall, and Android backup is disabled. A SAF Export is an independent copy that may fail or be cancelled; verify it externally. The preview does not provide encrypted off-device backup, atomic writes to third-party document providers, or cloud sync.
 
 ## App-private storage component — connected in source, awaiting device acceptance
 
 The branch includes `android/app/src/main/java/com/goreecloud/documents/DocumentShelf.kt`, a native app-private, atomic-file document store. Its Robolectric regression tests cover reopening, updating, invalid identifiers, malformed and oversized entries. `MainActivity.kt` now loads shelf records on startup, persists newly created and imported documents, and saves edited records on a background thread. Export is a separate SAF operation that does not update the private save snapshot. CI run [42012234517](https://github.com/GoreeCloud/documents/actions/runs/42012234517) passed JVM tests and `assembleDebug` at exact code head `a3dd1be535f2d68be2fbc450e563099d9e4ebf38`.
 
-**Verification boundary:** CI proves Kotlin compilation, codec/shelf unit tests and a debug build, not full interactive behavior on physical Android. Mandatory follow-up is an emulator/device test for create → terminate → relaunch → edit → Save → relaunch; verify dirty-state retention during concurrent edits, SAF cancellation, read/write failures, storage exhaustion, app-background behavior, accessibility and corruption recovery. Do not declare production durability or distribute an APK without those checks.
+**Verification boundary:** CI proves Kotlin compilation, codec/shelf unit tests and a debug build, not full interactive behavior on physical Android. The host-driven emulator force-stop/relaunch exercise now covers previously committed synthetic data, but further Android-device tests are required for unsaved edits across real termination/reboot, edit → Save → relaunch and external-provider scenarios; verify dirty-state retention during concurrent edits, SAF cancellation, read/write failures, storage exhaustion, app-background behavior, accessibility and corruption recovery. Do not declare production durability or distribute an APK without those checks.
 
 ## Corrupted local-record handling
 
@@ -38,6 +38,28 @@ UTF-8 and preservation of the original bytes.
 The strict decoder is now invoked by the Android UI's saved-document loading
 path through `DocumentShelf.scan()`. A green unit test still does not establish
 full app lifecycle durability or recovery behavior on a physical device.
+
+## Host-driven emulator force-stop and relaunch — verified source preview
+
+I require an explicit Save to survive process termination without falsely
+claiming that unsaved edits are durable. On November 7, 2026 the Android
+35 GitHub Actions emulator ran `ProcessDeathDurabilityTest` in **two
+separate instrumentation invocations**: one saved a unique synthetic
+record; the host started the Activity, ran `adb shell am force-stop`,
+checked the app process had exited, restarted the Activity, and ran a
+second instrumentation that read and verified the original committed
+record and removed only its own synthetic fixture.
+
+[Android CI run 42434441252](https://github.com/GoreeCloud/documents/actions/runs/42434441252)
+passed both `android-debug` and `android-emulator` at source head
+`d8ca098f161ea774cc4c464c44683fffe56d83f6`, including this
+two-phase test. The ordinary instrumentation suite skips this fixture
+unless the host supplies its explicit phase; CI runs both phases
+separately. This demonstrates an actual **emulator force-stop** path,
+not a physical-device power failure, spontaneous process crash, reboot,
+storage exhaustion, external-provider partial write, APK distribution
+or Stable release. The Android application was not installed on an
+owner's physical phone during this validation.
 
 ## Legacy backup discovery (source preview)
 
