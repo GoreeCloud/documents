@@ -63,6 +63,25 @@ jobs:
           "$aapt" dump permissions "$apk" | python3 tools/check_android_permissions.py
           sha256sum "$apk"
           echo "Debug APK and its offline permissions inspected; no release artifact delivered."
+      - name: Stage the verified CI debug APK and build checksum
+        run: |
+          set -euo pipefail
+          original=android/app/build/outputs/apk/debug/app-debug.apk
+          folder="$RUNNER_TEMP/goreecloud-documents-debug"
+          mkdir -p "$folder"
+          name="GoreeCloud-Documents-0.1.0-dev-${GITHUB_SHA}-CI-debug.apk"
+          install -m 0644 "$original" "$folder/$name"
+          cmp "$original" "$folder/$name"
+          (cd "$folder" && sha256sum "$name" > SHA256SUMS.txt)
+          echo "Temporary GitHub ZIP artifact prepared. This is NOT standalone Drive APK delivery."
+      - name: Retain short-lived debug transport ZIP for verified extraction
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: goreecloud-documents-ci-debug-${{ github.sha }}
+          path: ${{ runner.temp }}/goreecloud-documents-debug/
+          if-no-files-found: error
+          retention-days: 2
+          compression-level: 0
 
   android-emulator:
     runs-on: ubuntu-24.04
