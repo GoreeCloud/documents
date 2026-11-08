@@ -79,6 +79,34 @@ jobs:
           adb devices
       - name: Test native Activity lifecycle and app-private Save on emulator
         run: gradle -p android :app:connectedDebugAndroidTest --no-daemon
+      - name: Verify a committed private record across actual emulator force-stop and relaunch
+        run: |
+          set -euo pipefail
+          # All files, credentials, packages and runtime processes here belong to
+          # this disposable Android 35 GitHub Actions emulator only.
+          apk=android/app/build/outputs/apk/debug/app-debug.apk
+          test_apk=android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+          test -s "$apk"
+          test -s "$test_apk"
+          adb install -r "$apk"
+          adb install -r "$test_apk"
+          runner='com.goreecloud.documents.test/androidx.test.runner.AndroidJUnitRunner'
+          case_name='com.goreecloud.documents.ProcessDeathDurabilityTest#committedRecordSurvivesHostDrivenForceStop'
+          adb shell am instrument -w -r -e class "$case_name" -e gcdocs.phase seed "$runner" | tee "$RUNNER_TEMP/gcdocs-process-seed.log"
+          grep -F 'OK (1 test)' "$RUNNER_TEMP/gcdocs-process-seed.log"
+          adb shell am start -W -n com.goreecloud.documents/.MainActivity
+          timeout 30 bash -c 'until adb shell pidof com.goreecloud.documents >/dev/null; do sleep 1; done'
+          adb shell am force-stop com.goreecloud.documents
+          if adb shell pidof com.goreecloud.documents >/dev/null; then
+            echo 'ERROR: application still running after force-stop'
+            exit 1
+          fi
+          adb shell am start -W -n com.goreecloud.documents/.MainActivity
+          timeout 30 bash -c 'until adb shell pidof com.goreecloud.documents >/dev/null; do sleep 1; done'
+          adb shell am instrument -w -r -e class "$case_name" -e gcdocs.phase verify "$runner" | tee "$RUNNER_TEMP/gcdocs-process-verify.log"
+          grep -F 'OK (1 test)' "$RUNNER_TEMP/gcdocs-process-verify.log"
+          echo 'Isolated force-stop/relaunch and committed-record verification passed.'
+
       - name: Report emulator diagnostics if tests fail
         if: failure()
         run: |
