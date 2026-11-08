@@ -4,6 +4,7 @@ import android.util.AtomicFile
 import org.json.JSONObject
 import java.io.File
 import java.io.IOException
+import java.nio.file.Files
 import java.util.UUID
 
 data class LocalDocument(val id: String, val document: PortableDocument)
@@ -103,8 +104,20 @@ class DocumentShelf(private val appFilesDir: File) {
         require(entries.size <= 5000) { "Too many local document entries for this preview" }
         var invalid = 0
         val recovered = mutableListOf<LocalDocument>()
-        for (file in entries.filter { it.isFile && it.name.endsWith(".json") }
-            .sortedWith(compareByDescending<File> { it.lastModified() }.thenBy { it.name })) {
+        // Android AtomicFile can restore a legacy .bak during openRead(), but only
+        // if we include its matching base path in this discovery pass.
+        val records = entries.asSequence()
+            .filter { it.isFile && (it.name.endsWith(".json") || it.name.endsWith(".json.bak")) }
+            .map { if (it.name.endsWith(".json.bak")) File(folder, it.name.removeSuffix(".bak")) else it }
+            .distinctBy { it.name }
+            .sortedWith(compareByDescending<File> { AtomicFile(it).lastModifiedTime }.thenBy { it.name })
+        for (file in records) {
+            // Do not resolve attacker-controlled links to files outside app-private storage.
+            val backup = File(file.path + ".bak")
+            if (Files.isSymbolicLink(file.toPath()) || Files.isSymbolicLink(backup.toPath())) {
+                invalid++
+                continue
+            }
             try {
                 recovered.add(read(file))
             } catch (_: Exception) {
