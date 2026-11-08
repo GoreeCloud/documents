@@ -44,6 +44,37 @@ class AndroidPermissionContractTest(unittest.TestCase):
             if component.tag in COMPONENTS and component is not launcher:
                 self.assertNotEqual(component.attrib.get(ANDROID + "exported"), "true")
 
+    def test_android_ci_runs_when_permission_tools_or_tests_change(self):
+        # This offline/privacy contract is not enough if Android CI silently
+        # skips a PR that edits the packaged APK permissions checker itself.
+        workflow = MANIFEST.parents[4] / ".github/workflows/android.yml"
+        source = workflow.read_text(encoding="utf-8")
+        self.assertIn("concurrency:\n", source)
+        triggers = source.split("concurrency:\n", 1)[0]
+        required = {
+            "android/**",
+            "tools/check_android_permissions.py",
+            "tools/android_device_preflight.py",
+            "tools/extract_android_ci_debug_apk.py",
+            "tests/test_android_*.py",
+            "tests/test_workflow_action_pins.py",
+            ".github/workflows/android.yml",
+        }
+        for event in ("push", "pull_request"):
+            header = "  " + event + ":\n    paths:\n"
+            self.assertIn(header, triggers)
+            section = triggers.split(header, 1)[1]
+            if event == "push":
+                section = section.split("\n  pull_request:\n", 1)[0]
+            matched = {
+                line.strip().removeprefix('- "').removesuffix('"')
+                for line in section.splitlines() if line.strip().startswith('- "')
+            }
+            self.assertTrue(
+                required.issubset(matched),
+                f"Android {event} does not cover all security-sensitive paths: {required - matched}"
+            )
+
     def test_unexpected_network_or_storage_access_is_not_silently_allowed(self):
         root = ET.parse(MANIFEST).getroot()
         for child in root:
