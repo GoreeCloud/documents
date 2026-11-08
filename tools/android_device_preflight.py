@@ -13,7 +13,7 @@ import subprocess
 
 PACKAGE = "com.goreecloud.documents"
 MIN_SDK = 26
-SERIAL = re.compile(r"[A-Za-z0-9_.:-]{1,128}\Z")
+SERIAL = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}\Z")
 
 
 class PreflightError(ValueError):
