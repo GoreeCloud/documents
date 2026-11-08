@@ -49,8 +49,8 @@ class AndroidPermissionContractTest(unittest.TestCase):
         # skips a PR that edits the packaged APK permissions checker itself.
         workflow = MANIFEST.parents[4] / ".github/workflows/android.yml"
         source = workflow.read_text(encoding="utf-8")
-        self.assertIn("concurrency:\\n", source)
-        triggers = source.split("concurrency:\\n", 1)[0]
+        self.assertIn("concurrency:\n", source)
+        triggers = source.split("concurrency:\n", 1)[0]
         required = {
             "android/**",
             "tools/check_android_permissions.py",
@@ -60,9 +60,9 @@ class AndroidPermissionContractTest(unittest.TestCase):
             ".github/workflows/android.yml",
         }
         for event in ("push", "pull_request"):
-            header = "  " + event + ":\\n    paths:\\n"
+            header = "  " + event + ":\n    paths:\n"
             self.assertIn(header, triggers)
-            section = triggers.split(header, 1)[1].split("\\n  ", 1)[0]
+            section = triggers.split(header, 1)[1].split("\n  ", 1)[0]
             matched = {
                 line.strip().removeprefix('- "').removesuffix('"')
                 for line in section.splitlines() if line.strip().startswith('- "')
