@@ -378,8 +378,21 @@ async function createShare() {
 
 async function exportCurrent() {
   if (!current || dirty || saving) { status("Finish saving before downloading"); return; }
+  const documentId = current.id, documentFormat = current.format;
   try {
-    const data = await api("/api/documents/" + current.id + "/export");
+    let data;
+    try {
+      data = await api("/api/documents/" + documentId + "/export");
+    } catch (e) {
+      if (e.status !== 413 || documentFormat !== "gcdoc") throw e;
+      if (!current || current.id !== documentId || dirty || saving) {
+        status("Document changed while preparing download; try again");
+        return;
+      }
+      const approved = confirm("Native GC DOC export exceeds the size limit. Download a Markdown (.md) copy instead? Text is preserved, but folder metadata is not included. Your saved document will not change.");
+      if (!approved) { status("Download canceled; document unchanged"); return; }
+      data = await api("/api/documents/" + documentId + "/export?format=md");
+    }
     const blob = new Blob([data.content], {type: data.mime_type});
     const link = document.createElement("a"), url = URL.createObjectURL(blob);
     link.href = url; link.download = data.filename;
