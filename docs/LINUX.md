@@ -67,9 +67,16 @@ license and provenance. It declares native runtime dependencies on Python
 the Documents service, configure a gateway, migrate databases, run privileged
 maintainer scripts, or store credentials.
 
-The build tool refuses to overwrite an existing package. It never installs
-the package or alters the host application state. Disposable Ubuntu CI runners
-are used for independent build, install, GTK4 launch and uninstall smoke tests.
+The build tool refuses to overwrite an existing package. It explicitly
+sets `0755` modes for directories **inside the assembled Debian archive**,
+including the control directory, even when the operator uses hardened
+`umask 077`; the temporary build parent remains owner-private. A
+Linux regression verifies directory modes and no-overwrite under that umask.
+It never installs the package or alters host application state. Disposable
+Ubuntu CI runners are used for independent build, install, GTK4 launch and
+uninstall smoke tests. On an authorized Zorin OS 18.1 laptop, the extracted
+package's native Python GTK4 client also launched a real window in an isolated
+X11 session without installing the `.deb` into the host OS.
 Passing them establishes only package mechanics on the tested environment.
 Do not distribute this development package before security review, a native
 token/session login flow, manual desktop quality checks, update/rollback review,

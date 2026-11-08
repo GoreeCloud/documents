@@ -75,6 +75,15 @@ def build(output=None):
             ("packaging/linux/ASSET_PROVENANCE.md", "ASSET_PROVENANCE.md"),
         ):
             copy_file(staging, src, "/usr/share/doc/goreecloud-documents/" + dest)
+        # The temporary staging parent stays owner-private, but directories
+        # *inside the .deb* must be searchable by unprivileged users and the
+        # DEBIAN control folder must satisfy dpkg-deb's mode requirements.
+        # A caller's umask (e.g. 077) must not change shipped package modes.
+        for current, _dirs, _files in os.walk(staging, followlinks=False):
+            folder = Path(current)
+            if folder.is_symlink():
+                raise ValueError("Unexpected symlink in package staging")
+            folder.chmod(0o755)
         candidate = Path(place) / DEB_NAME
         subprocess.run(
             ["dpkg-deb", "--build", "--root-owner-group", str(staging), str(candidate)],
