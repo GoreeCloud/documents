@@ -55,6 +55,7 @@ class AndroidPermissionContractTest(unittest.TestCase):
             "android/**",
             "tools/check_android_permissions.py",
             "tools/android_device_preflight.py",
+            "tools/extract_android_ci_debug_apk.py",
             "tests/test_android_*.py",
             "tests/test_workflow_action_pins.py",
             ".github/workflows/android.yml",
