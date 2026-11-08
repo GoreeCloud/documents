@@ -48,6 +48,8 @@ python3 -m goreedocs.recovery verify \
   --db ./data/private-backups/documents-2026-11-05.sqlite3
 ```
 
+If directory synchronization fails **after** a complete backup was linked into the destination, the utility attempts to remove only that newly linked inode and reports an error. An externally replaced destination must not be erased by rollback. Because a filesystem failure can also prevent reliable cleanup, always inspect the intended output path before retrying or treating the backup as complete. Synthetic tests inject post-publication directory `fsync` failures; they are not evidence of actual disk or power-loss recovery.
+
 The backup command produces a new private, self-contained SQLite database;
 the online SQLite operation includes committed WAL changes. The destination
 name is illustrative: select a fresh filename on every backup. If the backup
