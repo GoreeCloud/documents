@@ -211,5 +211,18 @@ jobs:
                       process.kill()
                       process.communicate()
           PY
+          # Exercise package-level upgrade and rollback on the disposable CI
+          # runner. Only the package control version changes; no app/user data.
+          scratch=$(mktemp -d)
+          dpkg-deb --raw-extract 'dist/goreecloud-documents_0.1.0~dev1_all.deb' "$scratch/staged"
+          sed -i 's/^Version: .*/Version: 0.1.0~dev2/' "$scratch/staged/DEBIAN/control"
+          dpkg-deb --build --root-owner-group "$scratch/staged" "$scratch/next.deb"
+          sudo dpkg --install "$scratch/next.deb"
+          test "$(dpkg-query --showformat='${Version}' --show goreecloud-documents)" = '0.1.0~dev2'
+          test -x /usr/bin/goreecloud-documents
+          sudo dpkg --install --force-downgrade 'dist/goreecloud-documents_0.1.0~dev1_all.deb'
+          test "$(dpkg-query --showformat='${Version}' --show goreecloud-documents)" = '0.1.0~dev1'
+          test -x /usr/bin/goreecloud-documents
+          echo 'Disposable package upgrade and downgrade completed'
           sudo dpkg --remove goreecloud-documents
           test ! -e /usr/bin/goreecloud-documents
