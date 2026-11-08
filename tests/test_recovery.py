@@ -209,6 +209,45 @@ class RecoveryTest(unittest.TestCase):
         self.assertFalse(any(self.base.glob(".goreedocs-recovery-*")))
         self.assertEqual(verify_database(self.source)["documents"], 1)
 
+    @unittest.skipUnless(__import__("sys").platform.startswith("linux"),
+                         "Requires Linux RLIMIT_FSIZE")
+    def test_real_os_file_size_limit_during_snapshot_preserves_source(self):
+        import subprocess
+        import sys
+
+        original = self.store.create({
+            "title": "Private limited-file rehearsal",
+            "body": "x" * 16_000,
+        })
+        # The file-size limit is designed to interrupt the destination COPY,
+        # not an auxiliary WAL/shared-memory operation during source review.
+        # This fixture deliberately checkpoints and finalizes a single-file
+        # source; WAL-safe online backup has separate tests.
+        with sqlite3.connect(self.source) as connection:
+            connection.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+            mode = connection.execute("PRAGMA journal_mode=DELETE").fetchone()[0]
+        self.assertEqual(mode, "delete")
+        output = self.base / "limited-output.sqlite3"
+        code = (
+            "import resource, signal, sys\n"
+            "resource.setrlimit(resource.RLIMIT_FSIZE, (8192, 8192))\n"
+            "signal.signal(signal.SIGXFSZ, signal.SIG_IGN)\n"
+            "from goreedocs.recovery import backup_database\n"
+            "backup_database(sys.argv[1], sys.argv[2])\n"
+        )
+        result = subprocess.run(
+            [sys.executable, "-c", code, str(self.source), str(output)],
+            cwd=Path(__file__).resolve().parents[1],
+            capture_output=True, text=True, timeout=25,
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse(output.exists())
+        self.assertFalse(any(self.base.glob(".goreedocs-recovery-*")))
+        self.assertEqual(
+            self.store.get(original["id"])["body"], "x" * 16_000
+        )
+        self.assertEqual(verify_database(self.source)["documents"], 1)
+
     def test_symlink_source_database_is_rejected(self):
         self.store.create({"title": "Private", "body": "safe"})
         alias = self.base / "alias.sqlite3"
