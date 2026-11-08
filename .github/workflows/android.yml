@@ -56,8 +56,13 @@ jobs:
           test -x "$aapt"
           "$signer" verify --verbose "$apk"
           "$aapt" dump badging "$apk" | grep -F "package: name='com.goreecloud.documents'"
+          "$aapt" dump badging "$apk" | grep -F "sdkVersion:'26'"
+          "$aapt" dump badging "$apk" | grep -F "targetSdkVersion:'35'"
+          # No platform permissions; allow only AndroidX's exact internal
+          # non-exported dynamic-receiver permission. Fail on any other use.
+          "$aapt" dump permissions "$apk" | python3 tools/check_android_permissions.py
           sha256sum "$apk"
-          echo "Debug APK inspected, not a release-signed or delivered artifact."
+          echo "Debug APK and its offline permissions inspected; no release artifact delivered."
 
   android-emulator:
     runs-on: ubuntu-24.04

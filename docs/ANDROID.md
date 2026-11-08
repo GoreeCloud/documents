@@ -138,6 +138,10 @@ consent to install, an APK signature check, a privacy audit or release
 approval. The separate standing GoreeCloud/Artifacts standalone APK
 delivery requirement and all app install/update/rollback gates still apply.
 
+## Fail-closed offline permission contract
+
+The app's declared privacy boundary is **no network or broad-storage permissions**, Android backup disabled, and only the launcher Activity exported. Source tests in `tests/test_android_permission_contract.py` check the declared Android manifest, exported components and backup/cleartext settings. The Android APK build workflow additionally checks the merged **packaged** manifest through Android SDK `aapt`, rejects any network, broad-storage or other unexpected permission, and enforces minimum SDK 26 and target SDK 35. AndroidX currently merges one app-defined `com.goreecloud.documents.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION` declaration and its matching use, which is explicitly allowed by `tools/check_android_permissions.py`; unknown, duplicate or undeclared permission uses fail closed. This app-scoped receiver permission is not an Android platform network or storage grant. These are development source/privacy checks; the corrected exact-head CI must pass before accepting the workflow change. They do not substitute for runtime traffic monitoring, an independent privacy review or physical-device approval.
+
 ## Android delivery and release gate
 
 Per GoreeCloud governance, every APK offered for installation/testing must be a **standalone `.apk` verified in the canonical Google Drive `GoreeCloud/Artifacts` directory**. GitHub Actions build output or ZIP archives are not a compliant APK delivery. No APK should be described as provided until that location, file identity, checksum and relevant build provenance are verified.
