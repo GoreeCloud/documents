@@ -12,7 +12,7 @@ class DevicePreflightTest(unittest.TestCase):
             ("get-state",): state,
             ("shell", "getprop", "ro.build.version.sdk"): sdk,
             ("shell", "getprop", "ro.kernel.qemu"): qemu,
-            ("shell", "pm", "path", PACKAGE): package,
+            ("shell", "pm", "list", "packages", PACKAGE): package,
         }
 
         def fake_run(argv, **kwargs):
@@ -39,10 +39,10 @@ class DevicePreflightTest(unittest.TestCase):
         self.assertEqual(len(commands), 4)
 
     def test_existing_installation_is_reported_without_touching_it(self):
-        runner, commands = self.fixture(package="package:/data/app/synthetic/base.apk")
+        runner, commands = self.fixture(package="package:" + PACKAGE)
         result = check("synthetic-serial:5555", run=runner)
         self.assertTrue(result["documents_package_installed"])
-        self.assertEqual(commands[-1], ("shell", "pm", "path", PACKAGE))
+        self.assertEqual(commands[-1], ("shell", "pm", "list", "packages", PACKAGE))
 
     def test_emulator_and_old_sdk_are_labeled_not_accepted(self):
         runner, _ = self.fixture(sdk="25", qemu="1")
