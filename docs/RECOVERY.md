@@ -74,6 +74,40 @@ recovery. Do not point two running Documents services at the same mutable
 database. Any future production cutover requires an explicit outage plan,
 verified backup, owner authorization, audited credentials and a rollback.
 
+## Synthetic encrypted off-device rehearsal — November 7, 2026
+
+For my GoreeCloud Documents recovery workflow, I require **restorable,
+owner-private backups** and controlled off-device custody, not merely an
+unencrypted copy of a live SQLite file. The recovery CLI currently produces
+a private **unencrypted** SQLite snapshot; encryption and off-device storage
+remain separately configured operator responsibilities.
+
+An authorized **synthetic-data-only** rehearsal on November 7, 2026 used
+two distinct connected machines. A disposable local Documents database
+was backed up through the SQLite online-backup API, gzip-compressed and
+encrypted with OpenSSL CMS (AES-256-CBC content encryption using a
+recipient's ephemeral RSA certificate). Only the encrypted payload was
+transferred; the recipient's private key remained on the destination.
+The destination decrypted the payload, verified SHA-256 parity with the
+source snapshot, restored to a **new** SQLite path, confirmed document
+content, and confirmed active historical shares were revoked in the
+restored copy while original shares remained unchanged.
+
+The reproducible `tests/test_recovery_encrypted_transport.py` exercises
+the same synthetic CMS encryption/decryption and isolated restore checks
+without requiring any connected accounts, real credentials, or network
+access. It requires the OpenSSL CLI; it skips on systems where OpenSSL
+is unavailable. This test is **not** an encrypted backup product feature.
+
+**Outstanding operational acceptance:** authenticate and pin intended
+recipients; verify trustworthy key custody, expiry, rotation and
+revocation; use appropriate approved cryptography and integrity checks;
+define encrypted off-device retention, recovery-time objectives and
+recovery-point objectives; test real host/disk interruption, loss of the
+source computer, key-loss scenarios, and an audited restoration/rollback.
+Neither this synthetic exercise nor the automated test authorizes
+production backup scheduling, live database replacement, or a Stable claim.
+
 ## Validation and limitations
 
 The unit suite covers document history, format preservation, isolation from
