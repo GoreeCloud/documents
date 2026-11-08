@@ -160,7 +160,10 @@ class DocumentFormatTest(unittest.TestCase):
 
     def test_browser_native_export_requires_consent_for_markdown_fallback(self):
         script = (ROOT / "web/app.js").read_text()
-        self.assertIn('if (e.status !== 413 || current.format !== "gcdoc") throw e;', script)
+        self.assertIn('const documentId = current.id, documentFormat = current.format;', script)
+        self.assertIn('if (e.status !== 413 || documentFormat !== "gcdoc") throw e;', script)
+        self.assertIn('current.id !== documentId || dirty || saving', script)
+        self.assertIn('Document changed while preparing download; try again', script)
         self.assertIn('const approved = confirm(', script)
         self.assertIn('folder metadata is not included', script)
         self.assertIn('if (!approved) { status("Download canceled; document unchanged"); return; }', script)
