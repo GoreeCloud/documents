@@ -126,8 +126,8 @@ python3 tools/android_device_preflight.py --serial 'EXPLICIT_ADB_SERIAL'
 ```
 
 Only four read-only ADB queries are permitted: device readiness, Android API
-level, emulator classification, and the existing path (if any) for
-`com.goreecloud.documents`. The utility refuses unexpected responses,
+level, emulator classification, and an exact installed-package listing for
+`com.goreecloud.documents` (without probing its private APK path). The utility refuses unexpected responses,
 transport failures and old Android API levels (minimum 26), and outputs
 machine-readable JSON with `release_accepted: false`. It never requests
 an APK path or an install command. All failure cases are testable with
