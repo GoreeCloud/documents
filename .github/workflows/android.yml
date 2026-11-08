@@ -3,10 +3,18 @@ on:
   push:
     paths:
       - "android/**"
+      - "tools/check_android_permissions.py"
+      - "tools/android_device_preflight.py"
+      - "tests/test_android_*.py"
+      - "tests/test_workflow_action_pins.py"
       - ".github/workflows/android.yml"
   pull_request:
     paths:
       - "android/**"
+      - "tools/check_android_permissions.py"
+      - "tools/android_device_preflight.py"
+      - "tests/test_android_*.py"
+      - "tests/test_workflow_action_pins.py"
       - ".github/workflows/android.yml"
 concurrency:
   group: android-documents-${{ github.head_ref || github.ref_name }}
