@@ -1,6 +1,6 @@
 # GoreeCloud Documents — Android offline editor preview
 
-**Status:** Source-only development branch. No verified APK has been delivered. Android runtime, permissions, visual quality, installation, upgrades and accessibility are not yet accepted.
+**Status:** Native Android offline editor development-preview source is integrated into `main`. Android 35 emulator and debug/JVM CI have passed, including a host-driven force-stop test. No standalone APK has been delivered or installed on an owner's device; physical-device, signing, distribution and Stable acceptance remain open.
 
 ## Purpose and boundaries
 
