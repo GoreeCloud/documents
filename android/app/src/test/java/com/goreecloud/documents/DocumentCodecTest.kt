@@ -44,6 +44,23 @@ class DocumentCodecTest {
         assertEquals(imported, reopened)
     }
 
+    @Test fun nativeExportSizeMatchesImporterAndMarkdownRemainsAvailable() {
+        val escapedBody = "\\".repeat(600_000)
+        val original = PortableDocument("Large escaped text", escapedBody)
+        val error = assertThrows(IllegalArgumentException::class.java) {
+            DocumentCodec.encode(original)
+        }
+        assertTrue(error.message.orEmpty().contains("export Markdown"))
+
+        val markdown = DocumentCodec.encode(original.copy(format = DocumentFormat.MARKDOWN))
+        assertEquals(escapedBody, String(markdown, Charsets.UTF_8))
+
+        val small = PortableDocument("Escaped text", "A \\"quoted\\" path \\\\ notes\\n")
+        val native = DocumentCodec.encode(small)
+        assertTrue(native.size <= DocumentCodec.MAX_PACKAGE_BYTES)
+        assertEquals(small, DocumentCodec.parse("small.gcdoc", native))
+    }
+
     @Test fun malformedAndUnexpectedEnvelopeRejected() {
         val wrong = listOf(
             "{}",
