@@ -23,6 +23,8 @@ All API requests except /api/public/{share_token} require a Bearer token in the 
 | DELETE | /api/shares/{token} | Revoke existing capability link |
 | GET | /api/public/{token} | Read current body/title with a valid unexpired share capability |
 
+**Import request-size boundary (development preview):** The serialized `.gcdoc` or `.md` file content itself remains limited to `MAX_JSON = 1,052,672` UTF-8 bytes, and the Markdown body remains limited to 1 MiB. Because the `POST /api/documents/import` request wraps that file content inside another JSON object, escaping can expand the HTTP body. This import route alone permits up to `6 * MAX_JSON + 4096` transport bytes, while `Store.import_file` independently rejects oversized native file content. Other authenticated write endpoints retain the original `MAX_JSON` request ceiling. This is a bounded developer-preview change pending dedicated HTTP regressions and resource-impact review; it is not a promise of unrestricted uploads.
+
 List query parameters: q (case-insensitive text), trash=1, favorites=1, recent=1, folder (exact folder or children), format (gcdoc or md), sort (updated, created, title), direction (asc or desc), limit (1–100; default 60) and offset (0–1,000,000). Result includes documents, total, offset, limit and has_more.
 
 Create example:
