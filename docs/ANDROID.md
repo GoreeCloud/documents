@@ -87,6 +87,28 @@ gradle -p android :app:testDebugUnitTest :app:assembleDebug --no-daemon
 
 The repository's Android CI workflow performs the same checks. **A green compile is not equivalent to device testing or APK delivery.**
 
+## Android APK integrity and signature preflight
+
+Before any APK is considered for installation, I require a verified
+package identity, content integrity and an appropriate signing and
+custody plan. The development CI now contains a **fail-closed debug APK
+preflight** using the reviewed GoreeCloud Android Toolkit source
+pinned to `70655c1c210984bc72a4a93436eaf8a6e3c59d8b`.
+
+The checks audit public tracked files for sensitive artifacts, verify
+bounded APK ZIP structure and SHA-256, invoke Android SDK
+`apksigner verify`, and confirm the compiled application package is
+`com.goreecloud.documents` via `aapt dump badging`. The Toolkit
+inspector distinguishes ZIP integrity from signature, identity and
+device verification. This additional CI step is **development source
+only** until its exact-head hosted run passes.
+
+A valid **debug** signature is not a trusted release signature.
+CI does not export, upload, install on an owner's device, or deliver the
+APK. Release signing-key custody, official hash/provenance, standalone
+APK storage in GoreeCloud/Artifacts, installation and upgrade/rollback
+remain separate acceptance gates.
+
 ## Android delivery and release gate
 
 Per GoreeCloud governance, every APK offered for installation/testing must be a **standalone `.apk` verified in the canonical Google Drive `GoreeCloud/Artifacts` directory**. GitHub Actions build output or ZIP archives are not a compliant APK delivery. No APK should be described as provided until that location, file identity, checksum and relevant build provenance are verified.
