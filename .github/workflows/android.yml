@@ -1,0 +1,114 @@
+name: Android offline client validation
+on:
+  push:
+    paths:
+      - "android/**"
+      - ".github/workflows/android.yml"
+  pull_request:
+    paths:
+      - "android/**"
+      - ".github/workflows/android.yml"
+concurrency:
+  group: android-documents-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+jobs:
+  android-debug:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Set up Android SDK command-line tools
+        uses: android-actions/setup-android@v4
+        with:
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: 'false'
+      - name: Prepare Android SDK 35
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.10.2"
+      - name: Verify Android codec and compile debug app
+        run: gradle -p android :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest --no-daemon
+      - name: Report package without distributing an APK
+        run: |
+          test -s android/app/build/outputs/apk/debug/app-debug.apk
+          echo "Android compile and unit tests passed; APK is not a delivered artifact."
+
+  android-emulator:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: 'false'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.10.2"
+      - name: Install isolated Android 35 emulator image
+        run: |
+          sdkmanager "platforms;android-35" "build-tools;35.0.0" emulator "system-images;android-35;google_apis;x86_64"
+          echo "no" | avdmanager create avd --force --name goreedocs-ci --package "system-images;android-35;google_apis;x86_64"
+      - name: Launch emulator and wait for device readiness
+        run: |
+          test -e /dev/kvm
+          sudo chmod 666 /dev/kvm
+          test -x "$ANDROID_SDK_ROOT/emulator/emulator"
+          nohup "$ANDROID_SDK_ROOT/emulator/emulator" -avd goreedocs-ci -no-window -no-audio -no-boot-anim -no-snapshot-save -gpu swiftshader_indirect -accel on -memory 2048 > "$RUNNER_TEMP/goreedocs-emulator.log" 2>&1 &
+          emulator_pid=$!
+          sleep 5
+          if ! kill -0 "$emulator_pid" 2>/dev/null; then
+            tail -100 "$RUNNER_TEMP/goreedocs-emulator.log"
+            exit 1
+          fi
+          timeout 300 adb wait-for-device
+          timeout 300 bash -c 'until [ "$(adb shell getprop sys.boot_completed | tr -d "\r")" = "1" ]; do sleep 5; done'
+          adb shell input keyevent 82
+          adb devices
+      - name: Test native Activity lifecycle and app-private Save on emulator
+        run: gradle -p android :app:connectedDebugAndroidTest --no-daemon
+      - name: Verify a committed private record across actual emulator force-stop and relaunch
+        run: |
+          set -euo pipefail
+          # All files, credentials, packages and runtime processes here belong to
+          # this disposable Android 35 GitHub Actions emulator only.
+          apk=android/app/build/outputs/apk/debug/app-debug.apk
+          test_apk=android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+          test -s "$apk"
+          test -s "$test_apk"
+          adb install -r "$apk"
+          adb install -r "$test_apk"
+          runner='com.goreecloud.documents.test/androidx.test.runner.AndroidJUnitRunner'
+          case_name='com.goreecloud.documents.ProcessDeathDurabilityTest#committedRecordSurvivesHostDrivenForceStop'
+          adb shell am instrument -w -r -e class "$case_name" -e gcdocs.phase seed "$runner" | tee "$RUNNER_TEMP/gcdocs-process-seed.log"
+          grep -F 'OK (1 test)' "$RUNNER_TEMP/gcdocs-process-seed.log"
+          adb shell am start -W -n com.goreecloud.documents/.MainActivity
+          timeout 30 bash -c 'until adb shell pidof com.goreecloud.documents >/dev/null; do sleep 1; done'
+          adb shell am force-stop com.goreecloud.documents
+          if adb shell pidof com.goreecloud.documents >/dev/null; then
+            echo 'ERROR: application still running after force-stop'
+            exit 1
+          fi
+          adb shell am start -W -n com.goreecloud.documents/.MainActivity
+          timeout 30 bash -c 'until adb shell pidof com.goreecloud.documents >/dev/null; do sleep 1; done'
+          adb shell am instrument -w -r -e class "$case_name" -e gcdocs.phase verify "$runner" | tee "$RUNNER_TEMP/gcdocs-process-verify.log"
+          grep -F 'OK (1 test)' "$RUNNER_TEMP/gcdocs-process-verify.log"
+          echo 'Isolated force-stop/relaunch and committed-record verification passed.'
+
+      - name: Report emulator diagnostics if tests fail
+        if: failure()
+        run: |
+          adb devices || true
+          tail -150 "$RUNNER_TEMP/goreedocs-emulator.log" || true
