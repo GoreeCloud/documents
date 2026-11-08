@@ -19,6 +19,7 @@ jobs:
       - name: Validate Python and API
         run: |
           python -m compileall -q goreedocs
+          python -m py_compile tests/gtk_widget_smoke.py
           python -m unittest discover -s tests -v
       - uses: actions/setup-node@v4
         with:
@@ -130,6 +131,13 @@ jobs:
               raise SystemExit(f"Native action runtime check failed: {status} {results}")
           print(results[0])
           PY
+
+      - name: Verify native owner-token recovery and editing against loopback fixture
+        env:
+          GDK_BACKEND: x11
+          GOREEDOCS_TOKEN: ""
+        run: |
+          timeout 60s xvfb-run -a env PYTHONPATH="$PWD" /usr/bin/python3 tests/gtk_widget_smoke.py
 
   linux-debian-package:
     runs-on: ubuntu-24.04
