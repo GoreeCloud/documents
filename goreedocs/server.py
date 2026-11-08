@@ -18,6 +18,8 @@ from uuid import uuid4
 
 MAX_BODY = 1024 * 1024
 MAX_JSON = MAX_BODY + 4096
+# A bounded JSON import wrapper may escape each source control byte as six ASCII bytes.
+MAX_IMPORT_REQUEST_JSON = 6 * MAX_JSON + 4096
 DOC_ID = re.compile(r"^[0-9a-f-]{36}$")
 SHARE_TOKEN = re.compile(r"^[A-Za-z0-9_-]{20,120}$")
 ROOT = Path(__file__).resolve().parent.parent
@@ -411,7 +413,7 @@ class Handler(BaseHTTPRequestHandler):
         if not hmac.compare_digest(supplied.encode("utf-8"), correct.encode("utf-8")):
             raise Problem(401, "Authorization required")
 
-    def body(self):
+    def body(self, max_size=MAX_JSON):
         content_type = self.headers.get("Content-Type", "").split(";")[0].strip().lower()
         if content_type != "application/json":
             raise Problem(415, "Use application/json")
@@ -419,7 +421,7 @@ class Handler(BaseHTTPRequestHandler):
             size = int(self.headers.get("Content-Length", "0"))
         except ValueError:
             raise Problem(400, "Invalid Content-Length")
-        if size <= 0 or size > MAX_JSON:
+        if size <= 0 or size > max_size:
             raise Problem(413, "Request size invalid or too large")
         try:
             return json.loads(self.rfile.read(size))
@@ -450,7 +452,7 @@ class Handler(BaseHTTPRequestHandler):
         if parts == ["api", "overview"] and method == "GET":
             return self.respond(store.overview())
         if parts == ["api", "documents", "import"] and method == "POST":
-            return self.respond(store.import_file(self.body()),201)
+            return self.respond(store.import_file(self.body(MAX_IMPORT_REQUEST_JSON)),201)
         if parts == ["api", "documents"]:
             if method == "GET":
                 return self.respond(store.search(
