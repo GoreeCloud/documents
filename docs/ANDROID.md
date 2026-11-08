@@ -1,6 +1,6 @@
 # GoreeCloud Documents — Android offline editor preview
 
-**Status:** Native Android offline editor development-preview source is integrated into `main`. Android 35 emulator and debug/JVM CI have passed, including a host-driven force-stop test. No standalone APK has been delivered or installed on an owner's device; physical-device, signing, distribution and Stable acceptance remain open.
+**Status:** Native Android offline editor development-preview source is integrated into `main`. Android 35 emulator and debug/JVM CI have passed, including a host-driven force-stop test. A CI **debug-signed standalone APK** has been saved in the canonical GoreeCloud/Artifacts Drive folder and read-back verified; it has **not** been installed on an owner's device. Physical-device acceptance, release signing, production distribution and Stable acceptance remain open.
 
 ## Purpose and boundaries
 
