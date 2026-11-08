@@ -80,7 +80,8 @@ class RecoveryHTTPIntegrationTest(unittest.TestCase):
         # The isolated restore must not change the original database or link.
         status, source_public = self.request(original_url + link_path)
         self.assertEqual(status, 200)
-        self.assertEqual(source_public["id"], self.doc["id"])
+        self.assertEqual(source_public["title"], "Synthetic confidential fixture")
+        self.assertNotIn("id", source_public)
 
 
 if __name__ == "__main__":
