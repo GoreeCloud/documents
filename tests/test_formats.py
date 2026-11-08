@@ -5,7 +5,7 @@ import sqlite3
 from tempfile import TemporaryDirectory
 import unittest
 
-from goreedocs.server import Problem, Store, ROOT
+from goreedocs.server import MAX_JSON, Problem, Store, ROOT
 
 
 class DocumentFormatTest(unittest.TestCase):
@@ -33,6 +33,29 @@ class DocumentFormatTest(unittest.TestCase):
         md_import = self.db.import_file({"filename": "my-note.md", "content": "# Hello"})
         self.assertEqual(md_import["title"], "my-note")
         self.assertEqual(md_import["format"], "md")
+
+    def test_native_export_respects_its_own_import_size_limit(self):
+        # Markdown can fit within MAX_BODY while JSON escaping doubles its size.
+        escaped_body = "\\" * 600_000
+        original = self.db.create({"title": "Large escaped text", "body": escaped_body,
+                                   "format": "gcdoc"})
+        with self.assertRaises(Problem) as error:
+            self.db.export(original["id"], "gcdoc")
+        self.assertEqual(error.exception.status, 413)
+        self.assertIn("export Markdown", error.exception.message)
+
+        markdown = self.db.export(original["id"], "md")
+        self.assertEqual(markdown["content"], escaped_body)
+        self.assertEqual(self.db.get(original["id"])["body"], escaped_body)
+
+        small_body = 'A \\"quoted\\" path \\\\ notes\\n' * 30
+        small = self.db.create({"title": "Small escaped text", "body": small_body,
+                                "format": "gcdoc"})
+        native = self.db.export(small["id"], "gcdoc")
+        self.assertLessEqual(len(native["content"].encode("utf-8")), MAX_JSON)
+        imported = self.db.import_file({"filename": native["filename"],
+                                        "content": native["content"]})
+        self.assertEqual(imported["body"], small_body)
 
     def test_bad_native_files_rejected(self):
         for name, content in [
