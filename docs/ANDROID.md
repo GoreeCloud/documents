@@ -109,6 +109,35 @@ APK. Release signing-key custody, official hash/provenance, standalone
 APK storage in GoreeCloud/Artifacts, installation and upgrade/rollback
 remain separate acceptance gates.
 
+## Explicit-device, read-only ADB preflight
+
+Before any physical Android installation, I require an explicitly selected
+target and a defensible statement of what was *actually* inspected. The
+development utility `tools/android_device_preflight.py` never installs,
+removes, launches, stops, pairs or modifies an app/device. It requires the
+exact ADB serial supplied with `--serial`; rejecting missing, malformed
+or option-like values avoids accidentally selecting the connected TV
+instead of the intended phone.
+
+From a reviewed local checkout with Android SDK platform-tools in PATH:
+
+```sh
+python3 tools/android_device_preflight.py --serial 'EXPLICIT_ADB_SERIAL'
+```
+
+Only four read-only ADB queries are permitted: device readiness, Android API
+level, emulator classification, and the existing path (if any) for
+`com.goreecloud.documents`. The utility refuses unexpected responses,
+transport failures and old Android API levels (minimum 26), and outputs
+machine-readable JSON with `release_accepted: false`. It never requests
+an APK path or an install command. All failure cases are testable with
+synthetic subprocess fixtures before interacting with a device.
+
+A successful read-only preflight is **not** physical runtime acceptance,
+consent to install, an APK signature check, a privacy audit or release
+approval. The separate standing GoreeCloud/Artifacts standalone APK
+delivery requirement and all app install/update/rollback gates still apply.
+
 ## Android delivery and release gate
 
 Per GoreeCloud governance, every APK offered for installation/testing must be a **standalone `.apk` verified in the canonical Google Drive `GoreeCloud/Artifacts` directory**. GitHub Actions build output or ZIP archives are not a compliant APK delivery. No APK should be described as provided until that location, file identity, checksum and relevant build provenance are verified.
