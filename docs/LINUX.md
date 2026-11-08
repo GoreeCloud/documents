@@ -1,6 +1,6 @@
 # GoreeCloud Documents — Linux GTK4 development client
 
-**Status:** Native GTK4 source preview, with an experimental Debian package builder. Package build/install/uninstall tests are under review; this is not a stable or supported release.
+**Status:** Native GTK4 development-preview source is integrated into `main`. Disposable Ubuntu CI has passed source, GTK runtime, Debian package install/removal and upgrade/downgrade tests. No supported or Stable desktop release has been delivered.
 
 ## Requirements
 
@@ -44,9 +44,9 @@ high-contrast accessibility checks on an actual desktop remain outstanding.
 
 ## Design and verification
 
-The UI uses the canonical GC UI semantic intent: Canvas for the native window, Surface for reading and editing, and a bounded sidebar/navigation layer. Its accent and radii map to verified Iris reference values in `GoreeCloud/gc-ui`. A complete native token adapter, high-contrast audit, keyboard screen-reader test, light/dark visual review, installation/removal testing and screenshot-led acceptance remain outstanding.
+The UI uses the canonical GC UI semantic intent: Canvas for the native window, Surface for reading and editing, and a bounded sidebar/navigation layer. Its accent and radii map to verified Iris reference values in `GoreeCloud/gc-ui`. A complete native design-token adapter, high-contrast/screen-reader review, target-desktop visual acceptance, signed package custody and physical target-machine installation/upgrade/rollback still require validation. Disposable CI package lifecycle tests have already passed.
 
-The Python test suite validates REST transport, in-memory token isolation, and the actual `DesktopAPI` against a real local `Service` instance (including authenticated create/list/read/save, version conflict rejection, and invalid credential handling). This verifies the client-to-service contract, not the GUI's visual and interactive behavior. Separate Xvfb CI tests start the GTK4 window and the packaged launcher, both with and without a pre-provisioned token. Follow the repository's release gates before claiming any supported Linux distribution or stable package.
+The Python test suite validates REST transport, in-memory token isolation, and the actual `DesktopAPI` against a real local `Service` instance (including authenticated create/list/read/save, version conflict rejection, and invalid credential handling). This verifies the client-to-service contract, not the GUI's visual and interactive behavior. Separate Xvfb CI tests start the GTK4 window and packaged launcher. A synthetic runtime regression also tests an invalid owner token, successful reconnect, native document selection, edit and Save against an isolated loopback SQLite service. These tests, plus disposable package upgrade and downgrade, have passed on hosted Linux CI. They do not establish a supported distribution or Stable package without actual target acceptance.
 
 Because this native client calls `goreedocs.cli.call`, it includes the verified redirect-safe CLI source from merged PR #2. The portable Python service and all platform-specific acceptance criteria remain independent.
 
