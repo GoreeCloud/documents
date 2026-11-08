@@ -114,7 +114,11 @@ object DocumentCodec {
                 .put("body", doc.body)
                 .put("folder", doc.folder.trim('/'))
                 .put("format", "gcdoc")
-            (obj.toString(2) + "\n").toByteArray(Charsets.UTF_8)
+            val encoded = (obj.toString(2) + "\n").toByteArray(Charsets.UTF_8)
+            require(encoded.size <= MAX_PACKAGE_BYTES) {
+                "Native GCDOC export exceeds the import size limit; export Markdown (.md) instead"
+            }
+            encoded
         }
     }
 
