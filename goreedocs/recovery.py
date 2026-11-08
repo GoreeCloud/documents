@@ -40,6 +40,11 @@ def _private_file(path):
 def _new_destination(path):
     path = Path(path).expanduser().absolute()
     folder = path.parent
+    # Do not redirect an otherwise private backup destination through an
+    # explicit directory symlink. This is a pathname check, not a full
+    # concurrent same-UID symlink-race guarantee.
+    if folder.is_symlink():
+        raise RecoveryError("Destination directory cannot be a symbolic link")
     if not folder.is_dir() or folder.stat().st_mode & 0o077:
         raise RecoveryError("Destination directory must exist and be owner-private (chmod 700)")
     if os.path.lexists(path):
