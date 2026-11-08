@@ -63,7 +63,9 @@ class AndroidPermissionContractTest(unittest.TestCase):
         for event in ("push", "pull_request"):
             header = "  " + event + ":\n    paths:\n"
             self.assertIn(header, triggers)
-            section = triggers.split(header, 1)[1].split("\n  ", 1)[0]
+            section = triggers.split(header, 1)[1]
+            if event == "push":
+                section = section.split("\n  pull_request:\n", 1)[0]
             matched = {
                 line.strip().removeprefix('- "').removesuffix('"')
                 for line in section.splitlines() if line.strip().startswith('- "')
