@@ -50,11 +50,10 @@ def check(serial: str, run=None) -> dict:
     is_emulator = readonly("shell", "getprop", "ro.kernel.qemu")
     if is_emulator not in ("", "0", "1"):
         raise PreflightError("Unexpected emulator classification")
-    installed = readonly("shell", "pm", "path", PACKAGE)
-    if installed and not all(
-        line.startswith("package:/") and "\n" not in line
-        for line in installed.splitlines()
-    ):
+    # Android can return exit 1 for an absent "pm path" query. Exact package
+    # listing returns an empty successful response for no installed app.
+    installed = readonly("shell", "pm", "list", "packages", PACKAGE)
+    if installed and installed != "package:" + PACKAGE:
         raise PreflightError("Unexpected installed-package response")
     return {
         "ok": sdk >= MIN_SDK,
