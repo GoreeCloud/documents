@@ -55,7 +55,7 @@ class DocumentCodecTest {
         val markdown = DocumentCodec.encode(original.copy(format = DocumentFormat.MARKDOWN))
         assertEquals(escapedBody, String(markdown, Charsets.UTF_8))
 
-        val small = PortableDocument("Escaped text", "A \\"quoted\\" path \\\\ notes\\n")
+        val small = PortableDocument("Escaped text", """A "quoted" path \ notes""")
         val native = DocumentCodec.encode(small)
         assertTrue(native.size <= DocumentCodec.MAX_PACKAGE_BYTES)
         assertEquals(small, DocumentCodec.parse("small.gcdoc", native))
