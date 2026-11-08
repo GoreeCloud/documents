@@ -1,6 +1,6 @@
 # GoreeCloud Documents — Android offline editor preview
 
-**Status:** Native Android offline editor development-preview source is integrated into `main`. Android 35 emulator and debug/JVM CI have passed, including a host-driven force-stop test. No standalone APK has been delivered or installed on an owner's device; physical-device, signing, distribution and Stable acceptance remain open.
+**Status:** Native Android offline editor development-preview source is integrated into `main`. Android 35 emulator and debug/JVM CI have passed, including a host-driven force-stop test. A CI **debug-signed standalone APK** has been saved in the canonical GoreeCloud/Artifacts Drive folder and read-back verified; it has **not** been installed on an owner's device. Physical-device acceptance, release signing, production distribution and Stable acceptance remain open.
 
 ## Purpose and boundaries
 
@@ -28,6 +28,72 @@ The branch includes `android/app/src/main/java/com/goreecloud/documents/Document
 ## SAF import stream progress safety
 
 The native import reader rejects a document provider that repeatedly returns **zero bytes without EOF**. Two consecutive zero-byte reads are tolerated to accommodate a transient faulty provider response; a third zero-byte read raises a recoverable import error rather than allowing a tight infinite loop. The same strict package-size and UTF-8 checks remain in place. This does not bound a provider call that blocks indefinitely, prove recovery after a physical disconnect, or certify third-party SAF services without target testing.
+
+## Debug APK provenance and standalone extraction (CI transport only)
+
+For owner testing I require any delivered Android APK to be an **individual
+standalone `.apk` file stored in the canonical
+[GoreeCloud/Artifacts](https://drive.google.com/drive/folders/1Yy3DbKYZHm_CMS35IitCiClMadeEdVYo)
+folder**. A GitHub Actions ZIP, a source checkout, a checksum report, or a
+debug build that remains only in CI **does not constitute that delivery**.
+
+After the Android debug job successfully compiles, verifies the APK signature,
+checks the package ID and SDK bounds, audits tracked sources and enforces the
+packaged **offline permission contract**, it now stages a separate, explicitly
+debug-signed APK and SHA-256 digest. The official GitHub Actions artifact
+service retains both in a short-lived ZIP for **two days**, strictly as an
+intermediate transport. The ZIP is not a Stable build or a signed production
+release; the ephemeral artifact is not installed or copied to Drive
+automatically.
+
+I can extract this ZIP without overwriting an existing output using the
+first-party `tools/extract_android_ci_debug_apk.py` utility. Before extraction
+I must independently verify the **successful main-branch workflow run**, its
+source commit and the APK SHA-256 reported in the **job log**, rather than
+trusting the SHA file inside a potentially replaced ZIP:
+
+```sh
+umask 077
+mkdir -m 700 /tmp/goreedocs-verified-apk
+python3 tools/extract_android_ci_debug_apk.py \
+  /path/to/downloaded-github-actions-transport.zip \
+  /tmp/goreedocs-verified-apk \
+  --expected-source-sha "<40-hex-commit-from-successful-run>" \
+  --expected-apk-sha256 "<64-hex-APK-SHA256-from-debug-job>"
+```
+
+The utility checks the exact two-member transport, prohibits duplicate
+names, path traversal, linked/oversized members, and refuses an output already
+present. It checks the **extracted** APK byte hash against the independent
+expected checksum, then publishes it to a new local filename. The output
+remains labeled debug and its result says `release_signed: false` and
+`drive_delivery_complete: false`. I must separately inspect the resulting
+APK with Android SDK `apksigner` and `aapt`, transfer the standalone file
+into the **verified GoreeCloud/Artifacts folder** using an authorized Drive
+connection, and read back the Drive file/hash before counting any delivery.
+
+This process is a custody-preparation step and does not authorize deployment
+to a phone or label any debug build Stable.
+
+**Verified initial debug test artifact — November 7, 2026 (Central time):**
+From the successful [GitHub Android debug job in Actions run
+42443078703](https://github.com/GoreeCloud/documents/actions/runs/42443078703),
+I independently confirmed source checkout merge commit
+`ae04063ccf773957049b9ef85c62d9a6c813df0e` (based on development
+PR #28) and APK SHA-256
+`c07f28de4bb2cbfd5ca6974ee7555d227a8f9f64a8b234631665e2a204a02ed1`,
+9,511,037 bytes. After checking the transport ZIP members and checksum, I
+uploaded the extracted **standalone** debug file directly into the required
+[GoreeCloud/Artifacts Drive folder](https://drive.google.com/drive/folders/1Yy3DbKYZHm_CMS35IitCiClMadeEdVYo)
+as [GoreeCloud Documents CI debug APK](https://drive.google.com/file/d/1pr038ZgIJRrqmyVjTUhroL--5MkaE5sd/view).
+A fresh Drive download was independently hashed to the same SHA-256 and
+compared byte-for-byte with the staged APK. Google Drive metadata reports
+exactly that parent folder, owner `goreecloud@gmail.com`, Android package
+MIME type, and 9,511,037 bytes. This counts as **debug APK custody/delivery
+only**; no physical installation, external-provider acceptance, release
+signing or Stable approval has occurred. A PR checkout build is not
+automatically the final `main` build, and a future distribution build must
+be separately validated and stored without overwriting provenance.
 
 ## Corrupted local-record handling
 
