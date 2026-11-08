@@ -143,6 +143,25 @@ class DocumentShelfTest {
         assertTrue(Files.isSymbolicLink(pending.toPath()))
     }
 
+    @Test fun symbolicLinkBaseRecordCannotReplaceExternalTarget() {
+        val shelf = DocumentShelf(temporary.root)
+        val saved = shelf.create(PortableDocument("Safe", "Committed"))
+        val record = File(temporary.root, "documents/${saved.id}.json")
+        val previous = temporary.newFile("preserved-committed.bin")
+        Files.move(record.toPath(), previous.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+        val originalBytes = previous.readBytes()
+        val outside = temporary.newFile("outside-base.txt")
+        outside.writeText("Outside must survive", Charsets.UTF_8)
+        Files.createSymbolicLink(record.toPath(), outside.toPath())
+
+        assertThrows(IllegalArgumentException::class.java) {
+            shelf.save(saved.id, PortableDocument("Changed", "Not committed"))
+        }
+        assertEquals("Outside must survive", outside.readText(Charsets.UTF_8))
+        assertArrayEquals(originalBytes, previous.readBytes())
+        assertTrue(Files.isSymbolicLink(record.toPath()))
+    }
+
     @Test fun symlinkedLegacyBackupCannotBeTruncatedByLocalSave() {
         val shelf = DocumentShelf(temporary.root)
         val saved = shelf.create(PortableDocument("Safe", "Original"))
