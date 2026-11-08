@@ -99,6 +99,8 @@ without requiring any connected accounts, real credentials, or network
 access. It requires the OpenSSL CLI; it skips on systems where OpenSSL
 is unavailable. This test is **not** an encrypted backup product feature.
 
+**Encryption integrity boundary:** The synthetic CMS exercise uses AES-256-CBC and an independently verified source SHA-256 digest. CBC is **not authenticated encryption**. Verifying a checksum obtained through an untrusted channel is insufficient to establish ciphertext authenticity; a production workflow needs authenticated encryption or a trusted signed manifest, verified recipients and key management. The additional negative regression tests refuse a mismatched recipient or malformed CMS envelope, but do not prove detection of arbitrary ciphertext modifications.
+
 **Outstanding operational acceptance:** authenticate and pin intended
 recipients; verify trustworthy key custody, expiry, rotation and
 revocation; use appropriate approved cryptography and integrity checks;
