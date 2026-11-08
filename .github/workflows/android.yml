@@ -56,8 +56,18 @@ jobs:
           test -x "$aapt"
           "$signer" verify --verbose "$apk"
           "$aapt" dump badging "$apk" | grep -F "package: name='com.goreecloud.documents'"
+          "$aapt" dump badging "$apk" | grep -F "sdkVersion:'26'"
+          "$aapt" dump badging "$apk" | grep -F "targetSdkVersion:'35'"
+          # The app is offline and must not silently acquire INTERNET,
+          # storage or any other declared permission via dependency merging.
+          permissions=$("$aapt" dump permissions "$apk")
+          printf '%s\n' "$permissions"
+          if printf '%s\n' "$permissions" | grep -Eq '^[[:space:]]*uses-permission(-sdk-[0-9]+)?:'; then
+            echo "ERROR: unexpected Android permission in packaged offline editor"
+            exit 1
+          fi
           sha256sum "$apk"
-          echo "Debug APK inspected, not a release-signed or delivered artifact."
+          echo "Debug APK and its offline permissions inspected; no release artifact delivered."
 
   android-emulator:
     runs-on: ubuntu-24.04
