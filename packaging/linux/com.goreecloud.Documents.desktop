@@ -1,0 +1,12 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=GoreeCloud Documents
+GenericName=Document Editor
+Comment=Local document library and editor (development preview)
+Exec=goreecloud-documents
+TryExec=goreecloud-documents
+Icon=goreecloud-documents
+Terminal=false
+StartupNotify=true
+Categories=Office;TextEditor;
