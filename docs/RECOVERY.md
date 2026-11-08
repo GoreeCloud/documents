@@ -116,6 +116,23 @@ source computer, key-loss scenarios, and an audited restoration/rollback.
 Neither this synthetic exercise nor the automated test authorizes
 production backup scheduling, live database replacement, or a Stable claim.
 
+## Simulated Linux file-size write restriction
+
+I require failed backup operations to preserve the source database and avoid
+leaving a misleading new snapshot. In addition to the existing injected
+`os.link` and directory-sync errors, the Linux-only test
+`test_real_os_file_size_limit_during_snapshot_preserves_source` starts a
+disposable subprocess with `RLIMIT_FSIZE=8192`, configures `SIGXFSZ` to be
+ignored, and attempts to back up a larger synthetic SQLite document.
+
+The fixture uses a **finalized single-file source database** so the
+file-size restriction interrupts the snapshot-write path rather than
+SQLite's source WAL/shared-memory inspection. It verifies failure,
+absence of a published destination and orphaned temporary files, and
+readability of the untouched source. It does **not** emulate ENOSPC,
+underlying storage corruption, power interruption, real off-device backup
+retention or a live service cutover. Those operational gates remain open.
+
 ## Validation and limitations
 
 The unit suite covers document history, format preservation, isolation from
