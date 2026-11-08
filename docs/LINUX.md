@@ -50,6 +50,10 @@ The Python test suite validates REST transport, in-memory token isolation, and t
 
 Because this native client calls `goreedocs.cli.call`, it includes the verified redirect-safe CLI source from merged PR #2. The portable Python service and all platform-specific acceptance criteria remain independent.
 
+## Installed Debian GTK behavior acceptance
+
+The Debian CI runner now exercises the **installed** `/usr/lib/goreecloud-documents/goreedocs/linux.py` and packaged `cli.py` through a synthetic loopback owner session, rather than only testing the checkout source and checking that an installed window opens. The test verifies rejection and recovery of an invalid owner token, a masked/cleared token entry, loading a synthetic private document, editing, explicit Save, and SQLite round-trip without credentials or owner data. The test script refuses a requested packaged path if it cannot verify the GTK module was loaded from that exact path. This is hosted-package runtime acceptance; physical package signing and normal persistent-desktop release acceptance remain separate.
+
 ## Experimental Debian package build
 
 The source tree includes a no-overwrite, offline `dpkg-deb` packager for

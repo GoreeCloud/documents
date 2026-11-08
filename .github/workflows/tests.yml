@@ -211,6 +211,12 @@ jobs:
                       process.kill()
                       process.communicate()
           PY
+          # Exercise actual installed GTK4 + CLI files, not the source-tree
+          # client, through the same synthetic token rejection/reconnect and
+          # SQLite Save lifecycle. Test server remains loopback/disposable.
+          timeout 65s xvfb-run -a env -u GOREEDOCS_TOKEN -u GOREEDOCS_URL \
+            GDK_BACKEND=x11 GCDOCS_TEST_CLIENT_DIR=/usr/lib/goreecloud-documents \
+            /usr/bin/python3 tests/gtk_widget_smoke.py
           # Exercise package-level upgrade and rollback on the disposable CI
           # runner. Only the package control version changes; no app/user data.
           scratch=$(mktemp -d)
