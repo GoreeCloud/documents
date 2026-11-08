@@ -36,9 +36,10 @@ def validate_endpoint(value):
     return value.rstrip("/")
 
 
-def call(path, method="GET", payload=None):
+def call(path, method="GET", payload=None, *, token=None):
     endpoint = validate_endpoint(os.environ.get("GOREEDOCS_URL", "http://127.0.0.1:8735"))
-    token = os.environ.get("GOREEDOCS_TOKEN", "")
+    if token is None:
+        token = os.environ.get("GOREEDOCS_TOKEN", "")
     if not token:
         raise ValueError("Set GOREEDOCS_TOKEN before using the CLI")
     headers = {"Authorization": "Bearer " + token, "Accept": "application/json"}

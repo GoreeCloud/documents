@@ -1,5 +1,6 @@
 """Integration and regression checks for document storage, REST, and AI bridge."""
 import json
+from http.client import HTTPConnection
 import os
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -8,7 +9,7 @@ import unittest
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
-from goreedocs.server import Problem, Service, Store
+from goreedocs.server import MAX_JSON, Problem, Service, Store
 from goreedocs import cli, mcp
 
 
@@ -47,6 +48,45 @@ class DocumentsTest(unittest.TestCase):
         self.assertEqual(len(self.req("/api/documents?q=%25")[1]["documents"]),0)
         self.assertEqual(self.req("/api/documents", "POST", {"title":"a","body":"","folder":"../secret"})[0], 400)
         self.assertEqual(self.req("/api/documents", "POST", {"title":"a","body":"x"*(1024*1024+1)})[0], 413)
+
+    def test_import_nested_json_transport_uses_strict_file_limits(self):
+        escaped = chr(92) * 400_000
+        status, original = self.req("/api/documents", "POST",
+                                    {"title": "Synthetic", "body": escaped, "format": "gcdoc"})
+        self.assertEqual(status, 201)
+        status, native = self.req("/api/documents/" + original["id"] + "/export")
+        self.assertEqual(status, 200)
+        self.assertLessEqual(len(native["content"].encode("utf-8")), MAX_JSON)
+        wrapped = {"filename": native["filename"], "content": native["content"]}
+        self.assertGreater(len(json.dumps(wrapped).encode("utf-8")), MAX_JSON)
+        status, imported = self.req("/api/documents/import", "POST", wrapped)
+        self.assertEqual(status, 201, imported)
+        self.assertEqual(imported["body"], escaped)
+        self.assertNotEqual(imported["id"], original["id"])
+
+        markdown = {"filename": "sample.md", "content": chr(92) * 600_000}
+        self.assertGreater(len(json.dumps(markdown).encode("utf-8")), MAX_JSON)
+        status, imported_md = self.req("/api/documents/import", "POST", markdown)
+        self.assertEqual(status, 201, imported_md)
+        self.assertEqual(imported_md["body"], markdown["content"])
+
+        status, _ = self.req("/api/documents/import", "POST",
+                             {"filename": "oversized.md", "content": "x" * (MAX_JSON + 1)})
+        self.assertEqual(status, 413)
+        # Send only the oversized length header. A server may close the
+        # connection before a client finishes streaming a rejected large body.
+        connection = HTTPConnection("127.0.0.1", self.srv.server_address[1], timeout=5)
+        try:
+            connection.putrequest("POST", "/api/documents")
+            connection.putheader("Authorization", "Bearer " + self.secret)
+            connection.putheader("Content-Type", "application/json")
+            connection.putheader("Content-Length", str(MAX_JSON + 1))
+            connection.endheaders()
+            response = connection.getresponse()
+            self.assertEqual(response.status, 413)
+            response.read()
+        finally:
+            connection.close()
 
     def test_rest_folder_search_uses_literal_names_and_descendants(self):
         names = [

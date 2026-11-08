@@ -78,5 +78,36 @@ class EndpointValidationTest(unittest.TestCase):
         self.assertEqual(server.followed, [])
 
 
+    def test_explicit_token_is_in_memory_and_overrides_environment(self):
+        class CaptureHandler(BaseHTTPRequestHandler):
+            def do_GET(self):
+                self.server.authorization = self.headers.get("Authorization")
+                response = b'{"ok": true}'
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(response)))
+                self.end_headers()
+                self.wfile.write(response)
+
+            def log_message(self, *_):
+                pass
+
+        server = HTTPServer(("127.0.0.1", 0), CaptureHandler)
+        server.authorization = None
+        self.addCleanup(server.server_close)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        self.addCleanup(server.shutdown)
+        url = "http://127.0.0.1:" + str(server.server_port)
+        with patch.dict(os.environ, {"GOREEDOCS_URL": url, "GOREEDOCS_TOKEN": "old-token"}):
+            result = cli.call("/api/documents", token="session-only-token")
+            self.assertEqual(result, {"ok": True})
+            self.assertEqual(server.authorization, "Bearer session-only-token")
+            self.assertEqual(os.environ["GOREEDOCS_TOKEN"], "old-token")
+            with self.assertRaisesRegex(ValueError, "GOREEDOCS_TOKEN"):
+                cli.call("/api/documents", token="")
+            self.assertEqual(os.environ["GOREEDOCS_TOKEN"], "old-token")
+
+
 if __name__ == "__main__":
     unittest.main()
