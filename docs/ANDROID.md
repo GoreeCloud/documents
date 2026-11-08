@@ -75,6 +75,26 @@ connection, and read back the Drive file/hash before counting any delivery.
 This process is a custody-preparation step and does not authorize deployment
 to a phone or label any debug build Stable.
 
+**Verified initial debug test artifact — November 7, 2026 (Central time):**
+From the successful [GitHub Android debug job in Actions run
+42443078703](https://github.com/GoreeCloud/documents/actions/runs/42443078703),
+I independently confirmed source checkout merge commit
+`ae04063ccf773957049b9ef85c62d9a6c813df0e` (based on development
+PR #28) and APK SHA-256
+`c07f28de4bb2cbfd5ca6974ee7555d227a8f9f64a8b234631665e2a204a02ed1`,
+9,511,037 bytes. After checking the transport ZIP members and checksum, I
+uploaded the extracted **standalone** debug file directly into the required
+[GoreeCloud/Artifacts Drive folder](https://drive.google.com/drive/folders/1Yy3DbKYZHm_CMS35IitCiClMadeEdVYo)
+as [GoreeCloud Documents CI debug APK](https://drive.google.com/file/d/1pr038ZgIJRrqmyVjTUhroL--5MkaE5sd/view).
+A fresh Drive download was independently hashed to the same SHA-256 and
+compared byte-for-byte with the staged APK. Google Drive metadata reports
+exactly that parent folder, owner `goreecloud@gmail.com`, Android package
+MIME type, and 9,511,037 bytes. This counts as **debug APK custody/delivery
+only**; no physical installation, external-provider acceptance, release
+signing or Stable approval has occurred. A PR checkout build is not
+automatically the final `main` build, and a future distribution build must
+be separately validated and stored without overwriting provenance.
+
 ## Corrupted local-record handling
 
 The app-private `DocumentShelf` now reuses the strict UTF-8 decoder from
