@@ -6,6 +6,7 @@ import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.ByteArrayInputStream
+import java.io.InputStream
 import java.nio.charset.CharacterCodingException
 
 class DocumentCodecTest {
@@ -92,6 +93,39 @@ class DocumentCodecTest {
                 ByteArrayInputStream(ByteArray(DocumentCodec.MAX_PACKAGE_BYTES + 1))
             )
         }
+    }
+
+    private class FaultyProviderStream(
+        private val bytes: ByteArray,
+        private var emptyReads: Int
+    ) : InputStream() {
+        private val source = ByteArrayInputStream(bytes)
+
+        override fun read(): Int = source.read()
+
+        override fun read(buffer: ByteArray, offset: Int, length: Int): Int {
+            if (emptyReads > 0) {
+                emptyReads--
+                return 0
+            }
+            return source.read(buffer, offset, length)
+        }
+    }
+
+    @Test fun transientProviderEmptyReadsCanStillCompleteImport() {
+        val payload = "# Synthetic provider".toByteArray(Charsets.UTF_8)
+        val imported = DocumentCodec.readLimited(FaultyProviderStream(payload, 2))
+        assertEquals("# Synthetic provider", String(imported, Charsets.UTF_8))
+        assertEquals("note", DocumentCodec.parse("note.md", imported).title)
+    }
+
+    @Test fun repeatedZeroProgressProviderStreamFailsInsteadOfSpinning() {
+        val error = assertThrows(IllegalArgumentException::class.java) {
+            DocumentCodec.readLimited(
+                FaultyProviderStream("# Never reached".toByteArray(Charsets.UTF_8), 10)
+            )
+        }
+        assertTrue(error.message.orEmpty().contains("no data repeatedly"))
     }
 
     @Test fun folderAndBodyValidation() {
