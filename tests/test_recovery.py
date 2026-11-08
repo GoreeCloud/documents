@@ -94,6 +94,9 @@ class RecoveryTest(unittest.TestCase):
         self.assertFalse((self.base / "should-not-exist.sqlite3").exists())
         public = self.base / "public"
         public.mkdir(mode=0o755)
+        # A hardened runner may inherit umask 077; make the unsafe fixture
+        # mode explicit so this test checks the backup guard, not umask.
+        public.chmod(0o755)
         with self.assertRaises(RecoveryError):
             backup_database(self.source, public / "no.sqlite3")
         self.assertFalse((public / "no.sqlite3").exists())
