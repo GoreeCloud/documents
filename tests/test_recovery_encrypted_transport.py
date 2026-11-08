@@ -91,5 +91,63 @@ class EncryptedRecoveryTransportTest(unittest.TestCase):
                 ).fetchone()[0], 0)
 
 
+    def test_wrong_recipient_or_malformed_envelope_refuses_decryption(self):
+        # CMS encryption here is a synthetic transport example, not a
+        # production authenticated-backup protocol. In particular, CBC does
+        # not itself authenticate modified ciphertext.
+        with TemporaryDirectory(prefix="gcdocs-invalid-cms-") as directory:
+            root = Path(directory)
+            source = root / "synthetic.gz"
+            source.write_bytes(gzip.compress(b"Synthetic secret fixture only", mtime=0))
+            recipients = []
+            for index in (1, 2):
+                key = root / ("recipient%d.key" % index)
+                cert = root / ("recipient%d.pem" % index)
+                subprocess.run([
+                    "openssl", "req", "-x509", "-newkey", "rsa:2048",
+                    "-nodes", "-keyout", str(key), "-out", str(cert),
+                    "-days", "1", "-subj", "/CN=synthetic-recipient-%d" % index,
+                ], check=True, stdout=subprocess.DEVNULL,
+                    stderr=subprocess.PIPE, timeout=30)
+                self.assertEqual(key.stat().st_mode & 0o077, 0)
+                recipients.append((key, cert))
+
+            payload = root / "encrypted.cms"
+            subprocess.run([
+                "openssl", "cms", "-encrypt", "-binary", "-aes-256-cbc",
+                "-in", str(source), "-out", str(payload),
+                "-outform", "DER", str(recipients[0][1]),
+            ], check=True, stdout=subprocess.DEVNULL,
+                stderr=subprocess.PIPE, timeout=30)
+            original_digest = hashlib.sha256(source.read_bytes()).digest()
+            output = root / "decrypted.gz"
+
+            wrong = subprocess.run([
+                "openssl", "cms", "-decrypt", "-binary", "-inform", "DER",
+                "-in", str(payload), "-recip", str(recipients[1][1]),
+                "-inkey", str(recipients[1][0]), "-out", str(output),
+            ], check=False, stdout=subprocess.DEVNULL,
+                stderr=subprocess.PIPE, timeout=30)
+            self.assertNotEqual(wrong.returncode, 0)
+            self.assertFalse(output.exists() and
+                             output.read_bytes() == source.read_bytes())
+
+            # A malformed ASN.1/CMS envelope is rejected; do not generalize
+            # this to authenticated integrity for all CBC tampering.
+            malformed = root / "malformed.cms"
+            malformed.write_bytes(b"not a CMS envelope" + payload.read_bytes())
+            if output.exists():
+                output.unlink()
+            rejected = subprocess.run([
+                "openssl", "cms", "-decrypt", "-binary", "-inform", "DER",
+                "-in", str(malformed), "-recip", str(recipients[0][1]),
+                "-inkey", str(recipients[0][0]), "-out", str(output),
+            ], check=False, stdout=subprocess.DEVNULL,
+                stderr=subprocess.PIPE, timeout=30)
+            self.assertNotEqual(rejected.returncode, 0)
+            self.assertEqual(hashlib.sha256(source.read_bytes()).digest(),
+                             original_digest)
+
+
 if __name__ == "__main__":
     unittest.main()
