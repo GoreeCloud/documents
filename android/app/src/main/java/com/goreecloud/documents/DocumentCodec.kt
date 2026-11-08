@@ -25,9 +25,20 @@ object DocumentCodec {
     fun readLimited(source: InputStream): ByteArray {
         val output = ByteArrayOutputStream()
         val buffer = ByteArray(8192)
+        var emptyReads = 0
         while (true) {
             val received = source.read(buffer)
             if (received == -1) break
+            if (received == 0) {
+                // A broken document provider can repeatedly report no data
+                // without EOF. Do not spin forever on its faulty stream.
+                emptyReads++
+                require(emptyReads < 3) {
+                    "Document provider returned no data repeatedly"
+                }
+                continue
+            }
+            emptyReads = 0
             require(output.size() + received <= MAX_PACKAGE_BYTES) {
                 "Document exceeds the maximum import size"
             }

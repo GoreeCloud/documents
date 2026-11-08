@@ -25,6 +25,10 @@ The branch includes `android/app/src/main/java/com/goreecloud/documents/Document
 
 **Verification boundary:** CI proves Kotlin compilation, codec/shelf unit tests and a debug build, not full interactive behavior on physical Android. The host-driven emulator force-stop/relaunch exercise now covers previously committed synthetic data, but further Android-device tests are required for unsaved edits across real termination/reboot, edit → Save → relaunch and external-provider scenarios; verify dirty-state retention during concurrent edits, SAF cancellation, read/write failures, storage exhaustion, app-background behavior, accessibility and corruption recovery. Do not declare production durability or distribute an APK without those checks.
 
+## SAF import stream progress safety
+
+The native import reader rejects a document provider that repeatedly returns **zero bytes without EOF**. Two consecutive zero-byte reads are tolerated to accommodate a transient faulty provider response; a third zero-byte read raises a recoverable import error rather than allowing a tight infinite loop. The same strict package-size and UTF-8 checks remain in place. This does not bound a provider call that blocks indefinitely, prove recovery after a physical disconnect, or certify third-party SAF services without target testing.
+
 ## Corrupted local-record handling
 
 The app-private `DocumentShelf` now reuses the strict UTF-8 decoder from
