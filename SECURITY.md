@@ -24,4 +24,15 @@ retention, integrity checks, and restore testing. A passing SQLite integrity
 check is not proof of disaster recovery readiness. See
 [docs/RECOVERY.md](docs/RECOVERY.md) for exact commands and acceptance gates.
 
+**CI supply-chain boundary:** For my Documents repository I pin third-party
+and first-party GitHub Actions to their full, resolved Git commit SHA rather
+than a movable version tag. These pins were resolved from the upstream
+maintainers' published `v4`/`v5` tags and, for Gradle, its annotated
+`v4.4.3` commit. Version labels remain in workflow comments for auditing.
+A future dependency update must intentionally verify and review the new
+upstream release and its resolved commit before changing a pin, and must pass
+both Android and Documents workflows. SHA pinning improves reproducibility;
+it is **not** a malware audit, provenance verification of every transitive
+component, deployment approval, or a substitute for least-privilege CI tokens.
+
 Report vulnerabilities privately to the repository owner without publishing credentials, private documents or exploitable secrets.
