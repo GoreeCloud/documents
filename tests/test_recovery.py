@@ -157,6 +157,58 @@ class RecoveryTest(unittest.TestCase):
         self.assertFalse(any(self.base.glob(".goreedocs-recovery-*")))
         self.assertEqual(self.store.get(doc["id"])["body"], "original")
 
+    def test_directory_sync_failure_rolls_back_own_published_backup(self):
+        import errno
+        import os
+        import stat
+        from unittest.mock import patch
+
+        doc = self.store.create({"title": "Keep on failed fsync", "body": "original"})
+        output = self.base / "sync-failed.sqlite3"
+        original_fsync = os.fsync
+
+        def fail_only_directory_sync(fd):
+            if stat.S_ISDIR(os.fstat(fd).st_mode):
+                raise OSError(errno.EIO, "Synthetic directory fsync failure")
+            return original_fsync(fd)
+
+        with patch("goreedocs.recovery.os.fsync", side_effect=fail_only_directory_sync):
+            with self.assertRaises(OSError):
+                backup_database(self.source, output)
+
+        self.assertFalse(output.exists())
+        self.assertFalse(any(self.base.glob(".goreedocs-recovery-*")))
+        self.assertEqual(self.store.get(doc["id"])["body"], "original")
+        self.assertEqual(verify_database(self.source)["documents"], 1)
+
+    def test_directory_sync_failure_does_not_delete_replacement(self):
+        import errno
+        import os
+        import stat
+        from unittest.mock import patch
+
+        self.store.create({"title": "Don't erase another output", "body": "private"})
+        output = self.base / "contested.sqlite3"
+        original_fsync = os.fsync
+
+        def replace_on_directory_sync(fd):
+            if stat.S_ISDIR(os.fstat(fd).st_mode):
+                # Simulate another same-UID writer replacing the just-published
+                # pathname. Rollback must not erase that writer's new bytes.
+                output.unlink()
+                output.write_bytes(b"replacement file")
+                output.chmod(0o600)
+                raise OSError(errno.EIO, "Synthetic directory fsync failure")
+            return original_fsync(fd)
+
+        with patch("goreedocs.recovery.os.fsync", side_effect=replace_on_directory_sync):
+            with self.assertRaises(OSError):
+                backup_database(self.source, output)
+
+        self.assertEqual(output.read_bytes(), b"replacement file")
+        self.assertFalse(any(self.base.glob(".goreedocs-recovery-*")))
+        self.assertEqual(verify_database(self.source)["documents"], 1)
+
     def test_symlink_source_database_is_rejected(self):
         self.store.create({"title": "Private", "body": "safe"})
         alias = self.base / "alias.sqlite3"
