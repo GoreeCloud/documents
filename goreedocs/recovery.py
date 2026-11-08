@@ -126,11 +126,25 @@ def _snapshot(source, destination, revoke_shares):
         # Same-directory hard link is atomic and fails if another writer created
         # the name; unlike os.replace, it never overwrites an existing backup.
         os.link(temporary, destination)
-        directory_fd = os.open(destination.parent, os.O_RDONLY)
         try:
-            os.fsync(directory_fd)
-        finally:
-            os.close(directory_fd)
+            directory_fd = os.open(destination.parent, os.O_RDONLY)
+            try:
+                os.fsync(directory_fd)
+            finally:
+                os.close(directory_fd)
+        except OSError:
+            # Publication has linked a complete, private database, but the
+            # directory was not durably synced. Refuse to report success and
+            # remove only our own newly linked inode. A concurrent replacement
+            # must never be deleted by rollback.
+            try:
+                if os.path.samefile(temporary, destination):
+                    os.unlink(destination)
+            except OSError:
+                # If rollback cannot be verified, let the original error reach
+                # the operator, who must inspect the unused destination.
+                pass
+            raise
         return {"output": str(destination), **details,
                 "share_links_revoked": bool(revoke_shares)}
     except sqlite3.DatabaseError:
