@@ -101,6 +101,22 @@ class RecoveryTest(unittest.TestCase):
             backup_database(self.source, public / "no.sqlite3")
         self.assertFalse((public / "no.sqlite3").exists())
 
+    def test_symlinked_private_backup_destination_directory_is_rejected(self):
+        self.store.create({"title": "No destination redirect", "body": "Private"})
+        private = self.base / "actual-private"
+        private.mkdir(mode=0o700)
+        private.chmod(0o700)
+        alias = self.base / "directory-link"
+        alias.symlink_to(private, target_is_directory=True)
+
+        with self.assertRaisesRegex(RecoveryError, "symbolic link"):
+            backup_database(self.source, alias / "should-not-appear.sqlite3")
+        with self.assertRaisesRegex(RecoveryError, "symbolic link"):
+            restore_database(self.source, alias / "also-not-created.sqlite3")
+        self.assertEqual(list(private.iterdir()), [])
+        self.assertTrue(alias.is_symlink())
+        self.assertEqual(verify_database(self.source)["documents"], 1)
+
     def test_source_must_be_owner_private(self):
         self.store.create({"title": "Private", "body": "text"})
         self.source.chmod(0o644)
