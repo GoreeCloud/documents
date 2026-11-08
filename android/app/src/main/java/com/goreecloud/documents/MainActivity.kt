@@ -166,7 +166,8 @@ private fun DocumentsScreen(activity: MainActivity) {
                         }
                     } catch (failure: Exception) {
                         activity.runOnUiThread {
-                            notice = failure.message ?: "Could not save the document"
+                            notice = "Export failed. External file may be incomplete; " +
+                                "check or remove it. Local edits remain unsaved."
                             busy = false
                         }
                     }

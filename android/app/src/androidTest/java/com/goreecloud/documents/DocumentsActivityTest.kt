@@ -171,6 +171,10 @@ class DocumentsActivityTest {
                 )
             )
             rule.onNodeWithText("Export…").performClick()
+            awaitText(
+                "Export failed. External file may be incomplete; " +
+                    "check or remove it. Local edits remain unsaved."
+            )
 
             // A provider error must release the busy state without claiming
             // that the local edits were saved.
