@@ -225,7 +225,10 @@ class Store:
             return {"filename":stem+".md", "content":doc["body"],"mime_type":"text/markdown; charset=utf-8"}
         package={"kind":"goreecloud.document", "schema_version":1,"title":doc["title"],
                  "body":doc["body"],"folder":doc["folder"],"format":"gcdoc"}
-        return {"filename":stem+".gcdoc","content":json.dumps(package,ensure_ascii=False,indent=2)+"\n",
+        content=json.dumps(package,ensure_ascii=False,indent=2)+"\n"
+        if len(content.encode("utf-8"))>MAX_JSON:
+            raise Problem(413,"GCDOC export exceeds the import size limit; export Markdown (.md) instead")
+        return {"filename":stem+".gcdoc","content":content,
                 "mime_type":"application/vnd.goreecloud.document+json"}
 
     def import_file(self, data):
