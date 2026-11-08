@@ -125,6 +125,85 @@ class DocumentShelfTest {
         assertTrue(Files.isSymbolicLink(shortcut.toPath()))
     }
 
+    @Test fun symlinkedPendingAtomicFileCannotWriteOutsideAppStorage() {
+        val shelf = DocumentShelf(temporary.root)
+        val saved = shelf.create(PortableDocument("Safe", "Committed"))
+        val record = File(temporary.root, "documents/${saved.id}.json")
+        val committed = record.readBytes()
+        val outside = temporary.newFile("outside-target.txt")
+        outside.writeText("External data must remain unchanged", Charsets.UTF_8)
+        val pending = File(record.path + ".new")
+        Files.createSymbolicLink(pending.toPath(), outside.toPath())
+
+        assertThrows(IllegalArgumentException::class.java) {
+            shelf.save(saved.id, PortableDocument("Changed", "Unsaved data"))
+        }
+        assertEquals("External data must remain unchanged", outside.readText(Charsets.UTF_8))
+        assertArrayEquals(committed, record.readBytes())
+        assertTrue(Files.isSymbolicLink(pending.toPath()))
+    }
+
+    @Test fun symbolicLinkBaseRecordCannotReplaceExternalTarget() {
+        val shelf = DocumentShelf(temporary.root)
+        val saved = shelf.create(PortableDocument("Safe", "Committed"))
+        val record = File(temporary.root, "documents/${saved.id}.json")
+        val previous = temporary.newFile("preserved-committed.bin")
+        Files.move(record.toPath(), previous.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+        val originalBytes = previous.readBytes()
+        val outside = temporary.newFile("outside-base.txt")
+        outside.writeText("Outside must survive", Charsets.UTF_8)
+        Files.createSymbolicLink(record.toPath(), outside.toPath())
+
+        assertThrows(IllegalArgumentException::class.java) {
+            shelf.save(saved.id, PortableDocument("Changed", "Not committed"))
+        }
+        assertEquals("Outside must survive", outside.readText(Charsets.UTF_8))
+        assertArrayEquals(originalBytes, previous.readBytes())
+        assertTrue(Files.isSymbolicLink(record.toPath()))
+    }
+
+    @Test fun symlinkedLegacyBackupCannotBeTruncatedByLocalSave() {
+        val shelf = DocumentShelf(temporary.root)
+        val saved = shelf.create(PortableDocument("Safe", "Original"))
+        val record = File(temporary.root, "documents/${saved.id}.json")
+        val committed = record.readBytes()
+        val outside = temporary.newFile("outside-backup.txt")
+        outside.writeText("Preserve this", Charsets.UTF_8)
+        val backup = File(record.path + ".bak")
+        Files.createSymbolicLink(backup.toPath(), outside.toPath())
+
+        assertThrows(IllegalArgumentException::class.java) {
+            shelf.save(saved.id, PortableDocument("Changed", "Not committed"))
+        }
+        assertEquals("Preserve this", outside.readText(Charsets.UTF_8))
+        assertArrayEquals(committed, record.readBytes())
+        assertTrue(Files.isSymbolicLink(backup.toPath()))
+    }
+
+    @Test fun danglingSymlinkedLocalRecordIsReportedWithoutFollowingIt() {
+        val shelf = DocumentShelf(temporary.root)
+        val saved = shelf.create(PortableDocument("Safe", "Good"))
+        val other = File(temporary.root, "documents/00000000-0000-0000-0000-000000000019.json.bak")
+        Files.createSymbolicLink(other.toPath(), File(temporary.root, "absent").toPath())
+        val scan = shelf.scan()
+        assertEquals(1, scan.invalidFiles)
+        assertEquals(listOf(saved), scan.documents)
+        assertTrue(Files.isSymbolicLink(other.toPath()))
+    }
+
+    @Test fun shelfDirectorySymlinkInsideAppStorageIsRejected() {
+        val app = temporary.newFolder("private-app")
+        val inside = File(app, "other-documents")
+        assertTrue(inside.mkdirs())
+        val shortcut = File(app, "documents")
+        Files.createSymbolicLink(shortcut.toPath(), inside.toPath())
+
+        assertThrows(IllegalArgumentException::class.java) {
+            DocumentShelf(app).create(PortableDocument("No aliases", "Private"))
+        }
+        assertTrue(inside.listFiles().isNullOrEmpty())
+    }
+
     @Test fun interruptedPendingAtomicWriteRetainsLastCommittedDocument() {
         val shelf = DocumentShelf(temporary.root)
         val original = shelf.create(PortableDocument("Recovery", "# Last committed"))

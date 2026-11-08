@@ -26,9 +26,23 @@ class DocumentShelf(private val appFilesDir: File) {
     }
 
     private fun ensureFolder() {
+        require(!Files.isSymbolicLink(folder.toPath())) {
+            "Document directory must not be a symbolic link"
+        }
         require(folder.isDirectory || folder.mkdirs()) { "Cannot create private document directory" }
         require(folder.canonicalFile.parentFile == appFilesDir.canonicalFile) {
             "Document directory must remain inside application storage"
+        }
+    }
+
+    private fun requireSafeAtomicPaths(record: File) {
+        // Android AtomicFile uses a .new temporary file and can restore a
+        // legacy .bak sidecar. No one of these paths may redirect outside
+        // the app-private shelf before openRead() or startWrite().
+        for (candidate in listOf(record, File(record.path + ".new"), File(record.path + ".bak"))) {
+            require(!Files.isSymbolicLink(candidate.toPath())) {
+                "Symbolic links are not permitted in private document records"
+            }
         }
     }
 
@@ -49,7 +63,9 @@ class DocumentShelf(private val appFilesDir: File) {
         require(payload.size <= DocumentCodec.MAX_PACKAGE_BYTES) {
             "Local document exceeds maximum storage size"
         }
-        val atomic = AtomicFile(recordFile(id))
+        val target = recordFile(id)
+        requireSafeAtomicPaths(target)
+        val atomic = AtomicFile(target)
         val stream = atomic.startWrite()
         try {
             stream.write(payload)
@@ -72,6 +88,7 @@ class DocumentShelf(private val appFilesDir: File) {
         require(record.name == "$id.json" && identifier.matches(id)) {
             "Unsupported document filename"
         }
+        requireSafeAtomicPaths(record)
         val atomic = AtomicFile(record)
         val bytes = atomic.openRead().use { DocumentCodec.readLimited(it) }
         // A damaged local record must not be silently decoded with U+FFFD replacements.
@@ -107,14 +124,19 @@ class DocumentShelf(private val appFilesDir: File) {
         // Android AtomicFile can restore a legacy .bak during openRead(), but only
         // if we include its matching base path in this discovery pass.
         val records = entries.asSequence()
-            .filter { it.isFile && (it.name.endsWith(".json") || it.name.endsWith(".json.bak")) }
+            .filter {
+                (it.isFile || Files.isSymbolicLink(it.toPath())) &&
+                    (it.name.endsWith(".json") || it.name.endsWith(".json.bak"))
+            }
             .map { if (it.name.endsWith(".json.bak")) File(folder, it.name.removeSuffix(".bak")) else it }
             .distinctBy { it.name }
             .sortedWith(compareByDescending<File> { AtomicFile(it).lastModifiedTime }.thenBy { it.name })
         for (file in records) {
             // Do not resolve attacker-controlled links to files outside app-private storage.
             val backup = File(file.path + ".bak")
-            if (Files.isSymbolicLink(file.toPath()) || Files.isSymbolicLink(backup.toPath())) {
+            if (Files.isSymbolicLink(file.toPath()) ||
+                Files.isSymbolicLink(backup.toPath()) ||
+                Files.isSymbolicLink(File(file.path + ".new").toPath())) {
                 invalid++
                 continue
             }

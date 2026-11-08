@@ -61,6 +61,10 @@ storage exhaustion, external-provider partial write, APK distribution
 or Stable release. The Android application was not installed on an
 owner's physical phone during this validation.
 
+## App-private AtomicFile path hardening
+
+The saved-document library now rejects symbolic links in the document directory and in any atomic record base, `.new` staging path, or legacy `.bak` sidecar **before read or write**. This prevents a pre-existing link in the app-private shelf from redirecting an `AtomicFile` write or recovery read beyond the expected record path. Scanning reports dangling `.json`/`.json.bak` symlinks as invalid instead of silently omitting them; it preserves their bytes/links without following them. Synthetic Robolectric tests cover outside-file preservation for `.new` and `.bak` symlinks, a dangling backup, and an in-app directory alias. This is a defense-in-depth source fix; it is not proof against adversarial races or physical-device filesystem corruption.
+
 ## Legacy backup discovery (source preview)
 
 The app-private shelf now discovers a valid legacy `.json.bak` sidecar even when its base `.json` file is missing. The matching `android.util.AtomicFile.openRead()` performs recovery using Android's platform behavior rather than treating the backup as an unrelated document. Discovery deduplicates base/backup entries and rejects symbolic links before reading them. Focused Robolectric fixtures cover orphaned committed data, malformed backup preservation, and symlink rejection. This is a source-level regression improvement; exact-head CI and true device process-death/storage-failure acceptance are tracked separately. The shelf does not provide cloud or off-device backup.
