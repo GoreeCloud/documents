@@ -5,13 +5,34 @@ are used. Run with xvfb-run on a host with system GTK4/PyGObject installed.
 """
 import os
 from pathlib import Path
+import sys
 import tempfile
 import threading
 import time
 import traceback
 
+# Optional packaged-client contract: import GTK/CLI modules from the
+# actual installed .deb payload while using the checkout's server only as
+# synthetic loopback test infrastructure. This must not test source GTK
+# accidentally while claiming that a packaged build was verified.
+PACKAGE_ROOT = os.environ.get("GCDOCS_TEST_CLIENT_DIR")
+if PACKAGE_ROOT:
+    client_root = Path(PACKAGE_ROOT).resolve()
+    if not (client_root / "goreedocs/linux.py").is_file():
+        raise RuntimeError("No installed GTK client at requested package path")
+    sys.path.insert(0, str(client_root))
+    import goreedocs
+    if Path(goreedocs.__file__).resolve() != client_root / "goreedocs/__init__.py":
+        raise RuntimeError("GTK smoke imported a non-packaged goreedocs module")
+    goreedocs.__path__.append(str(Path(__file__).resolve().parents[1] / "goreedocs"))
+
 from goreedocs import linux
 from goreedocs.server import Service, Store
+
+if PACKAGE_ROOT:
+    if Path(linux.__file__).resolve() != client_root / "goreedocs/linux.py":
+        raise RuntimeError("Native GTK module was not loaded from packaged payload")
+    print("PACKAGED_GTK_MODULE=" + str(linux.__file__), flush=True)
 
 import gi
 gi.require_version("Gtk", "4.0")
