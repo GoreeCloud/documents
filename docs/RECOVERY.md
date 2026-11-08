@@ -12,7 +12,11 @@ Keep independent, tested, encrypted off-device backups of important data.
   file can omit committed WAL changes and must not be treated as a backup.
 - Source databases and backup files must be private regular files (permissions
   `0600`). The **destination directory must already exist** and must be
-  owner-private (permissions `0700`).
+  owner-private (permissions `0700`). The recovery utility also rejects
+  a **direct symbolic link** in the selected destination directory path,
+  even when the symlink target itself has private permissions; it does not
+  guarantee race-free protection against another process modifying ancestor
+  directories concurrently.
 - The destination filename must **not exist**. Backup/restore refuses to
   overwrite an existing file, including a symlink. Never choose a live database
   filename as the output of a restore.
